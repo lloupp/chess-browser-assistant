@@ -11,14 +11,22 @@ Não há configuração para desativar esse bloqueio.
 
 ## Instalação rápida
 
-O ZIP entregue contém `dist/` pronta para carregar, código e testes.
+O ZIP **Chess_Browser_Assistant_Extensao.zip** contém somente os arquivos
+compilados, com `manifest.json` e `content.js` na raiz. Código e testes estão
+na branch `feat/local-training-mvp`, PR #1 deste repositório.
 
 1. Extraia o ZIP.
 2. Abra `chrome://extensions`, ative **Modo do desenvolvedor**.
-3. Clique **Carregar sem compactação** e selecione a pasta **dist/**.
+3. Clique **Carregar sem compactação** e selecione a pasta extraída, onde
+   estão `manifest.json` e `content.js`.
 4. Recarregue a página do Chess.com. Abra **Bots** antes do primeiro lance,
    ou **Análise**. No popup, escolha suas peças: brancas ou pretas.
 5. Aguarde a seta verde e mova as peças manualmente.
+
+Se usar o ZIP completo **Chess_Browser_Assistant_MVP.zip** ou o código do
+repositório, selecione **dist/** dentro de `chess-browser-assistant`.
+Selecionar a pasta do código causa o erro “Não foi possível carregar
+content.js”, pois ali o JavaScript ainda precisa ser compilado.
 
 Contra computador, só recomenda quando for o turno da cor selecionada.
 Inverter o tabuleiro não altera essa configuração. Na análise e no treino
@@ -145,10 +153,11 @@ Pode usar `CHROMIUM_PATH=/caminho/para/chrome npm run test:e2e` com Chrome
 for Testing. GitHub Actions instala Chromium, executa as verificações e
 publica um ZIP de `dist/` como artifact. Não publica na Chrome Web Store.
 
-**Validação desta entrega:** lint/typecheck, 39 testes e build passaram.
-E2E real foi tentado mas ficou bloqueado: o ambiente proíbe `socket()` e
-Chrome aborta ao criar o perfil. Não declarar E2E ou CI como aprovados sem
-executá-los em um ambiente compatível. Consulte `VALIDATION.md`.
+**Validação local:** lint/typecheck, 39 testes e build passaram. O ambiente
+local proíbe `socket()` e Chrome aborta ao criar o perfil. O E2E real roda
+agora no GitHub Actions; veja os resultados na
+[PR #1](https://github.com/lloupp/chess-browser-assistant/pull/1) e em
+`VALIDATION.md`. A validação física do Chess.com público continua pendente.
 
 ## Adicionar um adapter
 

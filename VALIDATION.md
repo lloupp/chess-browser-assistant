@@ -12,15 +12,19 @@ Branch local: `feat/local-training-mvp`. Nenhuma alteração de main ou merge.
 | `npm run test:integration` | Stockfish WASM real: passou |
 | `npm run build` | `dist/` gerado |
 | `npm audit` | Zero vulnerabilidades reportadas |
-| Playwright, extensão real | BLOQUEADO antes de carregar a extensão |
+| Playwright local, extensão real | BLOQUEADO antes de carregar a extensão |
 | Chess.com público | Não validado fisicamente |
-| CI remoto | Não executado: repositório remoto vazio |
-| Push / PR para main | Bloqueado: main inexistente e clone sem credencial de escrita |
+| CI remoto | Execuções disponíveis na PR #1; consultar o resultado do HEAD atual |
+| Publicação / PR para main | Branch publicada, PR #1 aberta em rascunho; sem merge |
 
 Teste Playwright tentou Chrome for Testing 145.0.7632.6. O processo abortou
 com `process_singleton_posix.cc: socket() failed: Operation not permitted`.
-Os três cenários E2E estão implementados, mas não foram aprovados neste
-ambiente. O teste integrado jsdom roda o build completo com mensagens de
+Os três cenários E2E estão implementados e rodam no GitHub Actions. O
+primeiro CI encontrou falha no harness: buscava a aba pela URL sem permissão
+para ler URLs. O teste foi corrigido para usar o ID da aba ativa, sem ampliar
+permissões. Resultados de cada execução:
+https://github.com/lloupp/chess-browser-assistant/pull/1/checks.
+O teste integrado jsdom roda o build completo com mensagens de
 extensão simuladas e engine real; não substitui a validação Chromium/MV3.
 
 ## Revisão e correções
@@ -39,16 +43,16 @@ extensão simuladas e engine real; não substitui a validação Chromium/MV3.
 
 ## Pendências externas
 
-O GitHub confirmou zero branches e respondeu 409 `Git Repository is empty`
-à tentativa de criar uma árvore Git. A regra de não alterar main diretamente
-foi preservada. Para publicar via conector e abrir a PR, o proprietário deve
-inicializar `main` no GitHub com um README vazio ou commit inicial. Depois,
-o conteúdo desta branch pode ser transplantado para uma branch a partir de
-main e a PR pode ser criada sem merge automático.
+O proprietário inicializou `main` com README. Os três commits locais foram
+publicados em `feat/local-training-mvp`, com o commit inicial de main como
+ancestral, e a PR #1 foi aberta. Nenhum conteúdo foi alterado diretamente
+em main. Nenhum merge foi feito. A validação do DOM do Chess.com público
+continua dependendo de teste físico.
 
 ## Teste físico curto
 
-1. Extraia ZIP, carregue `dist/` em `chrome://extensions`.
+1. Extraia `Chess_Browser_Assistant_Extensao.zip` e carregue a pasta extraída
+   em `chrome://extensions`. No ZIP completo/código fonte, carregue `dist/`.
 2. Com Node 22.12+, rode `npm ci` e `npm run fixture`; abra
    `http://127.0.0.1:8787/chess-board.html`. Verifique seta, e4/e5, inverter e promoção.
 3. No Chess.com, recarregue e inicie uma nova partida contra bot; escolha
@@ -57,4 +61,4 @@ main e a PR pode ser criada sem merge automático.
    desativada e nenhuma seta. Não use esta extensão contra pessoas.
 
 Não considerar o MVP integralmente aceito até Chromium, Chess.com e CI
-serem validados. Não foi criada PR ou informado número inexistente.
+serem validados. PR #1: https://github.com/lloupp/chess-browser-assistant/pull/1.

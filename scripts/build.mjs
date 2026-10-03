@@ -1,0 +1,10 @@
+import {build} from 'esbuild';
+import {mkdir,rm,copyFile,readFile,writeFile} from 'node:fs/promises';
+await rm('dist',{recursive:true,force:true});await mkdir('dist/engine',{recursive:true});
+for(const name of ['background','content','popup','offscreen']) await build({entryPoints:[`src/${name}.ts`],outfile:`dist/${name}.js`,bundle:true,format:'iife',target:'chrome116',minify:true,legalComments:'eof'});
+for(const file of ['popup.html','popup.css','offscreen.html'])await copyFile(`src/${file}`,`dist/${file}`);
+await copyFile('manifest.json','dist/manifest.json');
+for(const ext of ['js','wasm'])await copyFile(`node_modules/stockfish/bin/stockfish-18-lite-single.${ext}`,`dist/engine/stockfish-18-lite-single.${ext}`);
+await copyFile('node_modules/stockfish/Copying.txt','dist/engine/COPYING.txt');
+await copyFile('node_modules/chess.js/LICENSE','dist/CHESS-JS-LICENSE.txt');
+await writeFile('dist/THIRD-PARTY.txt',await readFile('THIRD-PARTY.md','utf8'));

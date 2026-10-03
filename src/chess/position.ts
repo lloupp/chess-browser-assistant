@@ -21,6 +21,12 @@ export function validated(fen:string): Chess {
     const kp=chess.get(ks), rp=chess.get(rs);
     if (!kp || !rp || kp.color+kp.type!==k || rp.color+rp.type!==r) throw new Error('Direito de roque inconsistente');
   }
+  if(fields[3]!=='-') {
+    const ep=fields[3] as Square,rank=Number(ep[1]),file=ep[0];
+    const pawnSquare=(file+(rank===6?5:4)) as Square,origin=(file+(rank===6?7:2)) as Square;
+    const pawn=chess.get(pawnSquare);
+    if(chess.get(ep) || chess.get(origin) || !pawn || pawn.type!=='p' || pawn.color!==other || fields[4]!=='0') throw new Error('En passant inconsistente');
+  }
   return chess;
 }
 export class PositionTracker {

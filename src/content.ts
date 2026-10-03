@@ -4,6 +4,7 @@ import { FairPlayGuard } from './guard';
 import { debounce } from './debounce';
 import { Overlay } from './ui/overlay';
 import { defaults, readSettings, type Settings, type Status, type Result } from './types';
+import { log } from './log';
 let settings:Settings={...defaults},status:Status={message:'Aguardando tabuleiro'},adapter:DomAdapter|undefined,overlay:Overlay|undefined;
 let cleanup:(()=>void)|undefined,token=Date.now(),lastFen='',lastResult:Result|undefined,route=location.href,stopped=false;
 const tracker=new PositionTracker();
@@ -12,7 +13,7 @@ function cancel() {
   void chrome.runtime.sendMessage({target:'background',action:'cancel',token}).catch(()=>{});
 }
 function invalidate() {cancel();lastFen='';run();}
-function publish(message:string,fen?:string,result?:Result) {status={message,fen,result,ready:Boolean(result)};}
+function publish(message:string,fen?:string,result?:Result) {status={message,fen,result,ready:Boolean(result)};log('status',message);if(fen)log('position',fen);if(result)log('engine','bestmove='+result.bestmove);}
 async function analyze() {
   if(stopped)return;
   const context=FairPlayGuard.check(location.href,document);
@@ -26,7 +27,7 @@ async function analyze() {
     const chess=validated(fen);
     if(chess.isGameOver()){cancel();publish('Partida encerrada',fen);return;}
     if(context.kind==='computer' && chess.turn()!==settings.side){cancel();publish('Aguardando adversário',fen);return;}
-    cancel();const revision=token;
+    cancel();const revision=++token;
     publish('Stockfish carregando / analisando',fen);
     const response=await chrome.runtime.sendMessage({target:'background',action:'analyze',fen,depth:settings.depth,token:revision});
     if(revision!==token || !FairPlayGuard.check(location.href,document).allowed || stopped || !settings.enabled)return;
@@ -50,6 +51,7 @@ function attach() {
   cleanup?.();overlay?.destroy();cancel();tracker.reset();lastFen='';adapter=found;
   if(!adapter){publish('Aguardando tabuleiro');return;}
   overlay=new Overlay(adapter);
+  log('board','detected orientation='+adapter.getOrientation());
   cleanup=adapter.observeChanges(()=>{
     // Orientation-only updates preserve analysis; actual piece changes cancel immediately.
     try {const s=adapter!.readPosition();if(lastFen && s.placement===lastFen.split(' ')[0] && (!s.exactFen || s.exactFen===lastFen)){if(lastResult && settings.overlay)overlay?.show(lastResult,settings.evaluation);return;}} catch { /* Transient animation: cancel until it settles. */ }

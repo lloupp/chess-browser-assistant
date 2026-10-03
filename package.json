@@ -1,15 +1,16 @@
 {
   "name": "chess-browser-assistant",
   "version": "1.0.0",
-  "description": "",
+  "description": "Local Stockfish training extension for Chrome MV3",
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc",
-    "test": "vitest run",
+    "test": "npm run build && vitest run",
     "build": "node scripts/build.mjs",
     "test:e2e": "playwright test",
     "test:integration": "vitest run tests/engine.integration.test.ts",
-    "fixture": "node scripts/fixture-server.mjs"
+    "fixture": "node scripts/fixture-server.mjs",
+    "build:dev": "node scripts/build.mjs --dev"
   },
   "repository": {
     "type": "git",
@@ -38,5 +39,8 @@
     "typescript-eslint": "8.71.0",
     "vitest": "5.0.3"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  }
 }

@@ -1,0 +1,7 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Chess Browser Assistant</title><link rel="stylesheet" href="popup.css">
+<h1>Chess Browser Assistant</h1><p>Modo: Treino · Stockfish local</p><pre id="status" role="status">Carregando...</pre>
+<form><label><input id="enabled" type="checkbox"> Engine</label><label><input id="overlay" type="checkbox"> Overlay</label><label><input id="evaluation" type="checkbox"> Avaliação (lado a jogar)</label>
+<label>Profundidade <select id="depth"><option value="8">Baixa (8)</option><option value="12">Média (12)</option><option value="18">Alta (18)</option></select></label>
+<label>Minhas peças contra bot <select id="side"><option value="w">Brancas</option><option value="b">Pretas</option></select></label></form>
+<label>FEN completo para ressincronizar <input id="fen" type="text" placeholder="Seis campos FEN" autocomplete="off"></label><button id="seed" type="button">Confirmar FEN</button>
+<p>Abra antes do primeiro lance. Sem histórico confiável, confirme o FEN. Partidas humanas são bloqueadas.</p><script src="popup.js"></script></html>

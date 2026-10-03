@@ -16,7 +16,11 @@ async function activeStatus(page:Page){
   // No tabs permission is needed: identify the active tab by ID, never its URL.
   return worker.evaluate(async()=>{const [tab]=await chrome.tabs.query({active:true,currentWindow:true});if(tab?.id===undefined)throw new Error('Active tab absent');return chrome.tabs.sendMessage(tab.id,{action:'status'});});
 }
-async function ready(page:Page){await expect.poll(async()=>{const s=await activeStatus(page);return s?.status.message;}).toBe('Stockfish pronto');return (await activeStatus(page)).status;}
+async function ready(page:Page){
+  const expectedFen=await page.locator('#board').getAttribute('data-fen');
+  await expect.poll(async()=>{const s=await activeStatus(page);return s?.status.message==='Stockfish pronto' && s.status.fen===expectedFen;}).toBe(true);
+  return (await activeStatus(page)).status;
+}
 test('loaded MV3 → fixture → WASM worker → legal move → overlay → new position',async()=>{
   const page=await context.newPage(),errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:8787/chess-board.html');

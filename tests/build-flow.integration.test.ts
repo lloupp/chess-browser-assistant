@@ -53,6 +53,9 @@ it('built extension routes full position through offscreen to real Stockfish and
     expect(dom.window.document.getElementById('cba-overlay')!.shadowRoot!.querySelectorAll('rect').length).toBe(2);
     const before=workers;await new Promise(r=>setTimeout(r,300));expect(workers).toBe(before);
     const c=new Chess();c.move('e4');render(c.fen());c.move('e5');render(c.fen());
+    await Promise.resolve();
+    expect((await get()).status.message).not.toBe('Stockfish pronto');
+    expect((await get()).status.result).toBeUndefined();
     await expect.poll(async()=>(await get()).status.fen,{timeout:10000}).toBe(c.fen());await expect.poll(async()=>(await get()).status.message,{timeout:10000}).toBe('Stockfish pronto');
     state=(await get()).status;expect(state.fen).toBe(c.fen());expect(workers).toBeGreaterThan(before);
     changes.forEach(fn=>fn({settings:{newValue:{enabled:false}}},'local'));await expect.poll(async()=>(await get()).status.message).toBe('Engine desligado');

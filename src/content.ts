@@ -10,6 +10,7 @@ let cleanup:(()=>void)|undefined,token=Date.now(),lastFen='',lastResult:Result|u
 const tracker=new PositionTracker();
 function cancel() {
   token++;overlay?.clear();lastResult=undefined;
+  status={message:'Aguardando posição estabilizar',ready:false};
   void chrome.runtime.sendMessage({target:'background',action:'cancel',token}).catch(()=>{});
 }
 function invalidate() {cancel();lastFen='';run();}

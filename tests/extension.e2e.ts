@@ -11,8 +11,10 @@ test.beforeAll(async()=>{
 });
 test.afterAll(async()=>{await context?.close();if(dir)await rm(dir,{recursive:true,force:true});});
 async function activeStatus(page:Page){
+  await page.bringToFront();
   const worker=context.serviceWorkers()[0];
-  return worker.evaluate(async url=>{const tabs=await chrome.tabs.query({});const tab=tabs.find(t=>t.url===url);if(!tab?.id)return null;return chrome.tabs.sendMessage(tab.id,{action:'status'});},page.url());
+  // No tabs permission is needed: identify the active tab by ID, never its URL.
+  return worker.evaluate(async()=>{const [tab]=await chrome.tabs.query({active:true,currentWindow:true});if(tab?.id===undefined)throw new Error('Active tab absent');return chrome.tabs.sendMessage(tab.id,{action:'status'});});
 }
 async function ready(page:Page){await expect.poll(async()=>{const s=await activeStatus(page);return s?.status.message;}).toBe('Stockfish pronto');return (await activeStatus(page)).status;}
 test('loaded MV3 → fixture → WASM worker → legal move → overlay → new position',async()=>{
@@ -53,5 +55,6 @@ test('Chess.com DOM adapter on allowed route; SPA human route removes suggestion
   await page.evaluate(()=>{history.pushState({},'','/play/online');document.body.setAttribute('data-game-type','human');});
   await expect(page.locator('#cba-overlay')).toHaveCount(0);await expect.poll(async()=>(await activeStatus(page))?.status.message).toBe('Assistência desativada neste tipo de partida.');
   const worker=context.serviceWorkers()[0];
-  const denied=await worker.evaluate(async url=>{const [t]=await chrome.tabs.query({url});return chrome.tabs.sendMessage(t.id!,{action:'seed',fen:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'});},page.url());expect(denied.error).toBeTruthy();await page.close();
+  await page.bringToFront();
+  const denied=await worker.evaluate(async()=>{const [t]=await chrome.tabs.query({active:true,currentWindow:true});return chrome.tabs.sendMessage(t.id!,{action:'seed',fen:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'});});expect(denied.error).toBeTruthy();await page.close();
 });

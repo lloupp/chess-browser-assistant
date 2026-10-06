@@ -2,6 +2,7 @@ package br.com.eduardo.chess;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.content.pm.ApplicationInfo;
 import android.view.WindowInsets;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -43,7 +44,7 @@ public final class MainActivity extends Activity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
+        WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
 
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))

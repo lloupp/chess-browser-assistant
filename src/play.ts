@@ -1,7 +1,7 @@
 import { Chess, DEFAULT_POSITION, type Square } from 'chess.js';
 import { UciEngine } from './engine/uci';
 import { parseMove } from './chess/position';
-import type { Color, Result } from './types';
+import type { Color } from './types';
 import {
   DIFFICULTIES,
   TIME_CONTROLS,
@@ -548,9 +548,11 @@ async function reviewGame(){
     $('review-summary').textContent='Análise concluída'+(average!==undefined?' · perda média '+(average/100).toFixed(1):'')+'.';
     for(const line of [...lines].sort((a,b)=>(b.loss??-1)-(a.loss??-1)).slice(0,8)){
       const li=document.createElement('li');
-      li.innerHTML='<strong>'+line.label+'</strong> · '+line.moveNumber+'. '+line.san+
+      const strong=document.createElement('strong');
+      strong.textContent=line.label;
+      li.append(strong,document.createTextNode(' · '+line.moveNumber+'. '+line.san+
         (line.best!=='—'&&line.best!==line.san?' → melhor '+line.best:'')+
-        (line.loss!==undefined?' · '+(line.loss/100).toFixed(1):'');
+        (line.loss!==undefined?' · '+(line.loss/100).toFixed(1):'')));
       $('review-list').append(li);
     }
   }catch{

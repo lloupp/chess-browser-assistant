@@ -384,7 +384,7 @@ function startNewGame(fen=DEFAULT_POSITION){
   resetClock();
   saveGame();
   render();
-  settingsDialog.close();
+  if(settingsDialog.open) settingsDialog.close();
   if(chess.turn()!==side&&!gameEnded()) void computerMove();
 }
 
@@ -472,6 +472,7 @@ function importFen(){
   const fen=$<HTMLTextAreaElement>('fen-text').value.trim();
   try{
     new Chess(fen);
+    syncSettings();
     toolsDialog.close();
     startNewGame(fen);
   }catch{

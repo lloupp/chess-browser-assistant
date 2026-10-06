@@ -76,7 +76,7 @@ física na nova página. Nenhum merge realizado.
 
 ## Evolução Android — 06/10/2026
 
-Branch: \`feat/android-product-evolution\`.
+Branch: `feat/android-product-evolution`.
 
 Escopo implementado:
 
@@ -103,4 +103,4 @@ Validação obrigatória antes de merge:
 5. assembleDebug + lintDebug;
 6. connectedDebugAndroidTest em emulador.
 
-Nenhum merge em \`main\` foi realizado.
+Nenhum merge em `main` foi realizado.

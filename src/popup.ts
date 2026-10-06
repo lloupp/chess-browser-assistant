@@ -26,3 +26,5 @@ document.getElementById('seed')!.addEventListener('click',()=>{
   void tabMessage({action:'seed',fen:(document.getElementById('fen') as HTMLInputElement).value}).then(r=>{status.textContent=r.error ?? 'FEN confirmado; analisando';}).catch(e=>{status.textContent=String(e);});
 });
 void refresh();const timer=setInterval(()=>void refresh(),1000);window.addEventListener('pagehide',()=>clearInterval(timer));
+
+document.getElementById('play')!.addEventListener('click',()=>{void chrome.tabs.create({url:chrome.runtime.getURL('play.html')});});

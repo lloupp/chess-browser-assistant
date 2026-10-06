@@ -1,3 +1,33 @@
+# Xadrez Local — app Android
+
+App Android instalável, com tabuleiro próprio para jogar contra Stockfish
+local. Escolha cor e dificuldade e mova por toque. Regras incluem roque,
+en passant, promoção, xeque-mate e empates. Sem conta nem permissões de rede.
+Interface empacotada em WebView, sem extensão ou navegador externo.
+
+## APK Android
+
+O workflow **Android APK** compila `app-debug.apk` e publica o artifact
+**Xadrez-Local-Android**. Android 8.0+ (API 26), com Android System WebView
+atualizado. Build de desenvolvimento para testes físicos.
+
+Para compilar: Node 22, JDK 17, Android SDK 35 e Gradle 8.9.
+
+```sh
+npm ci
+node scripts/build-android-assets.mjs
+gradle -p android :app:assembleDebug :app:lintDebug
+```
+
+Os recursos e o WASM ficam dentro do APK. O app não pede INTERNET.
+Teste físico pendente: instalar, jogar de brancas e pretas, confirmar resposta
+do computador, promoção, reinício durante cálculo e rotação da tela.
+Fechar ou destruir o app reinicia a partida; ainda não há save de partidas.
+
+---
+
+## Implementação anterior (extensão desktop)
+
 # Chess Browser Assistant
 
 Extensão Manifest V3 para Chrome/Chromium 116+, com Stockfish 18 lite WASM

@@ -24,6 +24,8 @@ import {
 } from './game/persistence';
 import { centipawnLoss, formatEvaluation, grade } from './game/review';
 
+declare global { interface Window { AndroidShare?:{share(text:string):void} } }
+
 const $=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 const glyphs:Record<string,string>={wk:'♔',wq:'♕',wr:'♖',wb:'♗',wn:'♘',wp:'♙',bk:'♚',bq:'♛',br:'♜',bb:'♝',bn:'♞',bp:'♟'};
 const pieceNames:Record<string,string>={k:'rei',q:'dama',r:'torre',b:'bispo',n:'cavalo',p:'peão'};
@@ -504,7 +506,8 @@ function importPgn(){
 async function shareGame(){
   const text='Xadrez Local\nFEN: '+chess.fen()+'\n\n'+exportedPgn();
   try{
-    if(navigator.share) await navigator.share({title:'Xadrez Local',text});
+    if(window.AndroidShare){window.AndroidShare.share(text);$('tool-message').textContent='Abrindo compartilhamento…';}
+    else if(navigator.share) await navigator.share({title:'Xadrez Local',text});
     else await copyText(text,'Partida');
   }catch(error){
     if((error as DOMException).name!=='AbortError') await copyText(text,'Partida');

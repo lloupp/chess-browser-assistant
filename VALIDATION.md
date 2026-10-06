@@ -72,3 +72,35 @@ início de pretas, orientação e reinício durante busca. Execução local do E
 bloqueada: download Chromium devolveu arquivo inválido; navegador indisponível.
 CI executa os quatro cenários. Promoção e término ainda precisam de validação
 física na nova página. Nenhum merge realizado.
+
+
+## Evolução Android — 06/10/2026
+
+Branch: \`feat/android-product-evolution\`.
+
+Escopo implementado:
+
+- autosave e retomada;
+- perfis de força por Elo e Skill Level;
+- estilo preciso e estilo mais humano;
+- UX mobile refeita;
+- desfazer, revanche e reinício;
+- modo prática com dica e feedback;
+- análise pós-jogo local;
+- PGN/FEN, compartilhamento e posições personalizadas;
+- relógios;
+- Worker Stockfish reutilizado entre lances;
+- smoke test Android em emulador;
+- pipeline de release assinado por tag;
+- Android definido como produto principal.
+
+Validação obrigatória antes de merge:
+
+1. lint;
+2. TypeScript;
+3. Vitest + Stockfish WASM;
+4. E2E Chromium;
+5. assembleDebug + lintDebug;
+6. connectedDebugAndroidTest em emulador.
+
+Nenhum merge em \`main\` foi realizado.

@@ -62,21 +62,35 @@ test('Chess.com DOM adapter on allowed route; SPA human route removes suggestion
   await page.bringToFront();
   const denied=await worker.evaluate(async()=>{const [t]=await chrome.tabs.query({active:true,currentWindow:true});return chrome.tabs.sendMessage(t.id!,{action:'seed',fen:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'});});expect(denied.error).toBeTruthy();await page.close();
 });
-test('play against real Stockfish; black start and restart cancel old search',async()=>{
+test('play against real Stockfish; persistence, black start and restart cancel old search',async()=>{
   const page=await context.newPage();const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(`chrome-extension://${id}/play.html`);
+  await page.evaluate(()=>localStorage.clear());await page.reload();
   await expect(page.locator('#board button')).toHaveCount(64);
+
   await page.locator('[data-square="e2"]').click();await page.locator('[data-square="e4"]').click();
   await expect(page.locator('#status')).toContainText('Tua vez.');
-  const fen=await page.locator('#board').getAttribute('data-fen');const game=new Chess(fen!);expect(game.turn()).toBe('w');expect(fen!.split(' ')[5]).toBe('2');
+  const fen=await page.locator('#board').getAttribute('data-fen');const game=new Chess(fen!);
+  expect(game.turn()).toBe('w');expect(fen!.split(' ')[5]).toBe('2');
   await expect(page.locator('#history li')).toHaveCount(1);
-  await page.selectOption('#color','b');await page.click('#new');await expect(page.locator('#status')).toContainText('Tua vez.');
+
+  await page.reload();
+  await expect(page.locator('#board')).toHaveAttribute('data-fen',fen!);
+  await expect(page.locator('#status')).toContainText(/Partida retomada|Tua vez/);
+
+  await page.click('#new');await expect(page.locator('#settings-dialog')).toHaveAttribute('open','');
+  await page.selectOption('#color','b');await page.locator('#settings-form button[type="submit"]').click();
+  await expect(page.locator('#status')).toContainText('Tua vez.');
   expect(new Chess((await page.locator('#board').getAttribute('data-fen'))!).turn()).toBe('b');
   await expect(page.locator('#board button').first()).toHaveAttribute('data-square','h1');
-  await page.selectOption('#color','w');await page.click('#new');
-  await page.locator('[data-square="d2"]').click();await page.locator('[data-square="d4"]').click();await page.click('#new');
+
+  await page.click('#new');await page.selectOption('#color','w');await page.locator('#settings-form button[type="submit"]').click();
+  await page.locator('[data-square="d2"]').click();await page.locator('[data-square="d4"]').click();
+  await page.click('#new');await page.locator('#settings-form button[type="submit"]').click();
   await expect(page.locator('#board')).toHaveAttribute('data-fen',new Chess().fen());
-  await page.locator('[data-square="e2"]').click();await page.locator('[data-square="e4"]').click();await expect(page.locator('#status')).toContainText('Tua vez.');
+
+  await page.locator('[data-square="e2"]').click();await page.locator('[data-square="e4"]').click();
+  await expect(page.locator('#status')).toContainText('Tua vez.');
   expect((await page.locator('#board').getAttribute('data-fen'))!.split(' ')[5]).toBe('2');
   expect(errors).toEqual([]);await page.close();
 });

@@ -8,3 +8,13 @@ it('cancellation terminates worker and rejects stale analysis',async()=>{const f
 it('rejects illegal engine output',async()=>{const f=fake();await ready(f);const p=f.e.analyze(DEFAULT_POSITION,8);f.line('bestmove e2e5');await expect(p).rejects.toThrow('ilegal');f.e.dispose();});
 it('rejects analysis before ready or while busy',async()=>{const f=fake();await expect(f.e.analyze(DEFAULT_POSITION,8)).rejects.toThrow();await ready(f);const p=f.e.analyze(DEFAULT_POSITION,8);await expect(f.e.analyze(DEFAULT_POSITION,8)).rejects.toThrow('ocupado');f.line('bestmove e2e4');await p;f.e.dispose();});
 it('handshake and analysis timeouts terminate',async()=>{vi.useFakeTimers();try{const f=fake();const init=f.e.init();const check=expect(init).rejects.toThrow('Timeout');vi.advanceTimersByTime(10001);await check;expect(f.terminate).toHaveBeenCalled();const g=fake();await ready(g);const p=g.e.analyze(DEFAULT_POSITION,8);const failed=expect(p).rejects.toThrow('Timeout');vi.advanceTimersByTime(15001);await failed;}finally{vi.useRealTimers();}});
+
+it('applies strength options before ready',async()=>{
+  const f=fake();
+  const init=f.e.init({'UCI_LimitStrength':true,'UCI_Elo':1320,'Skill Level':4});
+  f.line('uciok');await Promise.resolve();
+  expect(f.commands).toContain('setoption name UCI_LimitStrength value true');
+  expect(f.commands).toContain('setoption name UCI_Elo value 1320');
+  expect(f.commands).toContain('setoption name Skill Level value 4');
+  f.line('readyok');await init;f.e.dispose();
+});

@@ -1,12 +1,13 @@
 {
-  "name": "chess-browser-assistant",
-  "version": "1.0.0",
-  "description": "Local Stockfish training extension for Chrome MV3",
+  "name": "xadrez-local",
+  "version": "0.2.0",
+  "description": "Offline Android chess app powered locally by Stockfish, with practice and post-game review",
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc",
     "test": "npm run build && vitest run",
     "build": "node scripts/build.mjs",
+    "build:android": "node scripts/build-android-assets.mjs",
     "test:e2e": "playwright test",
     "test:integration": "vitest run tests/engine.integration.test.ts",
     "fixture": "node scripts/fixture-server.mjs",
@@ -16,7 +17,7 @@
     "type": "git",
     "url": "git+https://github.com/lloupp/chess-browser-assistant.git"
   },
-  "keywords": [],
+  "keywords": ["chess","android","stockfish","offline"],
   "author": "",
   "license": "GPL-3.0-or-later",
   "type": "module",

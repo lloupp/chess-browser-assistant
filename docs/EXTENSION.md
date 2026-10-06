@@ -10,36 +10,36 @@ com o app Android, mas não é mais o produto principal.
 
 Uso permitido:
 
-- Chess.com em \`/play/computer\`;
-- Chess.com em \`/analysis\` e rotas derivadas;
+- Chess.com em `/play/computer`;
+- Chess.com em `/analysis` e rotas derivadas;
 - fixture local de desenvolvimento.
 
-Partidas humanas são bloqueadas por \`src/guard.ts\` e não existe configuração
+Partidas humanas são bloqueadas por `src/guard.ts` e não existe configuração
 para remover esse bloqueio.
 
 ## Arquitetura da extensão
 
 | Módulo | Responsabilidade |
 | --- | --- |
-| \`src/board/adapter.ts\` | Leitura do DOM e geometria do tabuleiro |
-| \`src/chess/position.ts\` | FEN, UCI e reconstrução legal do histórico |
-| \`src/guard.ts\` | Allowlist e bloqueio de contextos humanos |
-| \`src/content.ts\` | Sincronização da posição e ciclo de análise |
-| \`src/background.ts\` | Validação e roteamento de mensagens |
-| \`src/offscreen.ts\` | Worker Stockfish fora do content script |
-| \`src/ui/overlay.ts\` | Destaques e setas |
-| \`src/popup.*\` | Configuração da extensão |
+| `src/board/adapter.ts` | Leitura do DOM e geometria do tabuleiro |
+| `src/chess/position.ts` | FEN, UCI e reconstrução legal do histórico |
+| `src/guard.ts` | Allowlist e bloqueio de contextos humanos |
+| `src/content.ts` | Sincronização da posição e ciclo de análise |
+| `src/background.ts` | Validação e roteamento de mensagens |
+| `src/offscreen.ts` | Worker Stockfish fora do content script |
+| `src/ui/overlay.ts` | Destaques e setas |
+| `src/popup.*` | Configuração da extensão |
 
 A análise é local, sem cookies, login, telemetria ou API remota.
 
 ## Desenvolvimento
 
-\`\`\`sh
+```sh
 npm ci
 npm run build
 npm test
 npm run test:e2e
-\`\`\`
+```
 
 O workflow **Extension quality** continua validando a implementação.
 

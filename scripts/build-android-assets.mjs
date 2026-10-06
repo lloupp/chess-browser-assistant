@@ -1,0 +1,10 @@
+import {build} from 'esbuild';
+import {mkdir,rm,copyFile,readFile,writeFile} from 'node:fs/promises';
+const out='android/app/src/main/assets';
+await rm(out,{recursive:true,force:true});await mkdir(`${out}/engine`,{recursive:true});
+await build({entryPoints:['src/play.ts'],outfile:`${out}/play.js`,bundle:true,format:'iife',target:'chrome80',minify:true});
+for(const file of ['play.html','play.css'])await copyFile(`src/${file}`,`${out}/${file}`);
+for(const ext of ['js','wasm'])await copyFile(`node_modules/stockfish/bin/stockfish-18-lite-single.${ext}`,`${out}/engine/stockfish-18-lite-single.${ext}`);
+await copyFile('node_modules/stockfish/Copying.txt',`${out}/engine/COPYING.txt`);
+await copyFile('node_modules/chess.js/LICENSE',`${out}/CHESS-JS-LICENSE.txt`);
+await writeFile(`${out}/THIRD-PARTY.txt`,await readFile('THIRD-PARTY.md','utf8'));

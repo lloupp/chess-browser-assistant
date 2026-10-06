@@ -1,9 +1,11 @@
 package br.com.eduardo.chess;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.content.pm.ApplicationInfo;
 import android.view.WindowInsets;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -45,6 +47,7 @@ public final class MainActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
+        webView.addJavascriptInterface(new AndroidShareBridge(), "AndroidShare");
 
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
@@ -84,6 +87,18 @@ public final class MainActivity extends Activity {
             webView.loadUrl("https://appassets.androidplatform.net/assets/play.html");
         } else {
             webView.restoreState(savedInstanceState);
+        }
+    }
+
+    private final class AndroidShareBridge {
+        @JavascriptInterface public void share(String text) {
+            if (text == null || text.trim().isEmpty()) return;
+            runOnUiThread(() -> {
+                Intent intent = new Intent(Intent.ACTION_SEND);
+                intent.setType("text/plain");
+                intent.putExtra(Intent.EXTRA_TEXT, text);
+                startActivity(Intent.createChooser(intent, "Compartilhar partida"));
+            });
         }
     }
 

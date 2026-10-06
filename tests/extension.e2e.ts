@@ -64,7 +64,7 @@ test('Chess.com DOM adapter on allowed route; SPA human route removes suggestion
 });
 test('play against real Stockfish; persistence, black start and restart cancel old search',async()=>{
   const page=await context.newPage();const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(\`chrome-extension://\${id}/play.html\`);
+  await page.goto(`chrome-extension://${id}/play.html`);
   await page.evaluate(()=>localStorage.clear());await page.reload();
   await expect(page.locator('#board button')).toHaveCount(64);
 

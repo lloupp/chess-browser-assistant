@@ -39,16 +39,21 @@ function render() {
         el.textContent = GLYPHS[piece.type];
         el.classList.add(piece.color === 'w' ? 'pw' : 'pb');
       }
-      el.onclick = () => onSquare(sq);
       board.appendChild(el);
     }
   }
-  const hist = chess.history();
-  $('history').innerHTML = '';
-  for (let i = 0; i < hist.length; i += 2) {
+  // Pair moves into numbered rows, honoring the move number and side to move of the starting FEN.
+  const hist = chess.history({ verbose: true });
+  const start = new Chess(hist.length ? hist[0].before : chess.fen());
+  const sans = hist.map((m) => m.san);
+  const rows = start.turn() === 'b' ? ['…', ...sans] : sans;
+  const ol = $('history');
+  ol.innerHTML = '';
+  ol.start = start.moveNumber();
+  for (let i = 0; i < rows.length; i += 2) {
     const li = document.createElement('li');
-    li.textContent = `${hist[i]} ${hist[i + 1] ?? ''}`;
-    $('history').appendChild(li);
+    li.textContent = `${rows[i]} ${rows[i + 1] ?? ''}`;
+    ol.appendChild(li);
   }
   $('undo').disabled = busy || !!practice || chess.history().length < 2;
   $('review-btn').disabled = busy || notes.length === 0;
@@ -108,8 +113,12 @@ async function grade(m) {
   else if (chess.isDraw()) playedCp = 0;
   else playedCp = -(await coach.analyze(chess.fen())).cp;
 
-  const best = bestInfo.bestmove ? new Chess(before).move(bestInfo.bestmove) : null;
-  const l = lesson({ bestCp: bestInfo.cp, playedCp, played, best, bestMate: bestInfo.mate, after: new Chess(chess.fen()) });
+  const afterBest = new Chess(before);
+  const best = bestInfo.bestmove ? afterBest.move(bestInfo.bestmove) : null;
+  const l = lesson({
+    bestCp: bestInfo.cp, playedCp, played, best, bestMate: bestInfo.mate,
+    after: new Chess(chess.fen()), before: new Chess(before), afterBest,
+  });
   setEval(player === 'w' ? playedCp : -playedCp);
   return { ...l, fen: before, san: played.san, bestSan: best?.san ?? null };
 }
@@ -221,6 +230,43 @@ async function newGame() {
   status('Sua vez.');
   render();
 }
+
+// Pointer input: a tap acts as a click (select / move); pressing a piece and moving drags it.
+let drag = null; // { from, x, y, ghost }
+const squareAt = (x, y) => document.elementFromPoint(x, y)?.closest('#board .sq')?.dataset.square;
+
+$('board').addEventListener('pointerdown', (e) => {
+  const from = e.target.closest('.sq')?.dataset.square;
+  const piece = from && chess.get(from);
+  if (busy || chess.turn() !== player || chess.isGameOver() || !piece || piece.color !== player) return;
+  drag = { from, x: e.clientX, y: e.clientY, ghost: null };
+});
+window.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  if (!drag.ghost) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 5) return;
+    const src = document.querySelector(`[data-square="${drag.from}"]`);
+    drag.ghost = src.cloneNode(true);
+    drag.ghost.className = `ghost ${src.classList.contains('pw') ? 'pw' : 'pb'}`;
+    drag.ghost.style.fontSize = getComputedStyle(src).fontSize;
+    document.body.appendChild(drag.ghost);
+    src.classList.add('dragging');
+    selected = drag.from;
+  }
+  drag.ghost.style.left = `${e.clientX}px`;
+  drag.ghost.style.top = `${e.clientY}px`;
+});
+window.addEventListener('pointerup', (e) => {
+  const target = squareAt(e.clientX, e.clientY);
+  const wasDrag = drag?.ghost;
+  if (wasDrag) {
+    drag.ghost.remove();
+    selected = drag.from;
+  }
+  drag = null;
+  if (target && (!wasDrag || target !== selected)) onSquare(target);
+  else if (wasDrag) render();
+});
 
 $('new').onclick = newGame;
 $('review-btn').onclick = showReview;

@@ -58,3 +58,29 @@ test('review lets the player retry a missed mate', async ({ page }) => {
   await sq(page, 'a8').click();
   await expect(page.locator('#status')).toContainText('Acertou!', { timeout: 30_000 });
 });
+
+test('a piece can be dragged to its destination', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#status')).toHaveText('Sua vez.', { timeout: 30_000 });
+  const from = await sq(page, 'g1').boundingBox();
+  const to = await sq(page, 'f3').boundingBox();
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
+  await expect(page.locator('.ghost')).toHaveCount(1);
+  await page.mouse.up();
+  await expect(page.locator('.ghost')).toHaveCount(0);
+  await expect(page.locator('#feedback .tag')).toContainText('Nf3:', { timeout: 30_000 });
+});
+
+test('history numbering follows the starting FEN', async ({ page }) => {
+  // Black to move at move 20; the player takes black.
+  await page.goto('/?fen=' + encodeURIComponent('4k3/8/8/8/8/8/4P3/4K3 b - - 0 20'));
+  await page.selectOption('#color', 'b');
+  await page.click('#new');
+  await expect(page.locator('#status')).toHaveText('Sua vez.', { timeout: 30_000 });
+  await sq(page, 'e8').click();
+  await sq(page, 'd8').click();
+  await expect(page.locator('#history')).toHaveAttribute('start', '20');
+  await expect(page.locator('#history li').first()).toHaveText(/^… Kd8$/, { timeout: 30_000 });
+});

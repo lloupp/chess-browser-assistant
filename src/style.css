@@ -29,3 +29,6 @@ button:disabled { opacity: .5; }
 .review ul { list-style: none; padding: 0; margin: 0; }
 .review li { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
 .review button { margin-left: auto; padding: 2px 8px; }
+#board { touch-action: none; }
+.sq.dragging { color: transparent; text-shadow: none; }
+.ghost { position: fixed; pointer-events: none; transform: translate(-50%, -50%); line-height: 1; z-index: 10; }

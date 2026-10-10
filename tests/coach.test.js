@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Chess } from 'chess.js';
-import { parseInfo, toCp, classify, formatEval, hangingPieces, lesson, worstMoves } from '../src/coach.js';
+import { parseInfo, toCp, classify, formatEval, hangingPieces, lesson, worstMoves, forkTargets, findPins, openingAdvice, describeTactic } from '../src/coach.js';
 
 describe('parseInfo', () => {
   it('reads cp score and pv', () => {
@@ -86,5 +86,89 @@ describe('worstMoves', () => {
     ];
     expect(worstMoves(notes).map((n) => n.loss)).toEqual([700, 200, 90]);
     expect(worstMoves(notes, 1)).toHaveLength(1);
+  });
+});
+
+describe('tactics', () => {
+  it('detects a knight fork of king and rook', () => {
+    const c = new Chess('r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1');
+    const m = c.move('Nc7+');
+    expect(forkTargets(c, 'c7').map((t) => t.type).sort()).toEqual(['k', 'r']);
+    expect(describeTactic(m, c, new Chess('r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1'))).toBe('um garfo em rei e torre');
+  });
+  it('does not call a single attack a fork', () => {
+    const c = new Chess('4k3/8/8/3N4/8/8/8/4K3 w - - 0 1');
+    c.move('Nc7+');
+    expect(forkTargets(c, 'c7')).toEqual([]);
+  });
+  it('detects a new pin against the king', () => {
+    const fen = '4k3/8/2n5/8/8/8/8/4KB2 w - - 0 1';
+    const c = new Chess(fen);
+    const m = c.move('Bb5');
+    expect(findPins(c, 'w')).toEqual([{ by: 'b5', pinned: { square: 'c6', type: 'n' }, behind: { square: 'e8', type: 'k' } }]);
+    expect(describeTactic(m, c, new Chess(fen))).toBe('cravando o cavalo em c6 no rei');
+  });
+  it('ignores a slider behind a less valuable piece', () => {
+    const c = new Chess('4k3/8/2q5/8/p7/8/8/R3K3 w - - 0 1'); // rook a1 -> pawn a4 -> nothing valuable
+    expect(findPins(c, 'w')).toEqual([]);
+  });
+});
+
+describe('openingAdvice', () => {
+  const mv = (fen, san) => new Chess(fen).move(san);
+  const e4e5 = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
+  it('flags an early queen sortie', () => {
+    expect(openingAdvice(mv(e4e5, 'Qh5'), 2)).toMatch(/dama cedo/);
+  });
+  it('flags a king walk but not castling', () => {
+    expect(openingAdvice(mv(e4e5, 'Ke2'), 2)).toMatch(/rocar/);
+    const castle = mv('rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4', 'O-O');
+    expect(openingAdvice(castle, 4)).toBeNull();
+  });
+  it('flags rim pawn moves, not central development', () => {
+    expect(openingAdvice(mv(e4e5, 'h4'), 2)).toMatch(/borda/);
+    expect(openingAdvice(mv(e4e5, 'Nf3'), 2)).toBeNull();
+  });
+  it('is silent after move 10', () => {
+    expect(openingAdvice(mv(e4e5, 'Qh5'), 11)).toBeNull();
+  });
+});
+
+describe('lesson with tactics', () => {
+  it('names the missed fork', () => {
+    const fen = 'r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1';
+    const after = new Chess(fen);
+    const played = after.move('Kd2');
+    const afterBest = new Chess(fen);
+    const best = afterBest.move('Nc7+');
+    const l = lesson({ bestCp: 500, playedCp: 0, played, best, bestMate: null, after, before: new Chess(fen), afterBest });
+    expect(l.text).toContain('Melhor era Nc7+, um garfo em rei e torre.');
+  });
+  it('praises a fork the player found', () => {
+    const fen = 'r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1';
+    const after = new Chess(fen);
+    const played = after.move('Nc7+');
+    const l = lesson({ bestCp: 500, playedCp: 500, played, best: played, bestMate: null, after, before: new Chess(fen), afterBest: after });
+    expect(l.text).toContain('Boa tática: um garfo em rei e torre!');
+  });
+  it('adds an opening principle to a costly early queen move', () => {
+    const fen = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
+    const after = new Chess(fen);
+    const played = after.move('Qh5');
+    const afterBest = new Chess(fen);
+    const best = afterBest.move('Nf3');
+    const l = lesson({ bestCp: 40, playedCp: -60, played, best, bestMate: null, after, before: new Chess(fen), afterBest });
+    expect(l.kind).toBe('inaccuracy');
+    expect(l.text).toMatch(/dama cedo/);
+  });
+});
+
+describe('lesson outside the opening', () => {
+  it('gives no opening advice in an endgame, even at move 1', () => {
+    const fen = 'r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1';
+    const after = new Chess(fen);
+    const played = after.move('Kd2');
+    const l = lesson({ bestCp: 500, playedCp: 0, played, best: null, bestMate: null, after, before: new Chess(fen) });
+    expect(l.text).not.toMatch(/Princípio/);
   });
 });

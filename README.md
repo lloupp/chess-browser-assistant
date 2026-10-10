@@ -3,7 +3,7 @@
 Professor de Xadrez: jogue contra o Stockfish no navegador e receba uma explicação após cada lance.
 
 - **Adversário** com 5 níveis (Stockfish `Skill Level`), jogando de brancas ou pretas.
-- **Professor** (Stockfish em força máxima) classifica cada lance seu — Ótimo, Bom, Imprecisão, Erro, Capivarada — pela perda em centipeões, mostra o melhor lance, avisa sobre mate perdido e peças deixadas penduradas.
+- **Professor** (Stockfish em força máxima) classifica cada lance seu — Ótimo, Bom, Imprecisão, Erro, Capivarada — pela perda em centipeões, mostra o melhor lance e explica por quê — garfos, cravadas, capturas, mate perdido, peças deixadas penduradas e princípios de abertura (dama cedo, rei sem roque, peões da borda).
 - **Dica** (destaca a peça a mover sem entregar o lance), **Desfazer** e barra de avaliação.
 - **Revisão**: no fim da partida (ou no botão *Revisar*) lista seus lances mais caros; *Refazer* volta à posição para você encontrar um lance melhor.
 - **Promoção** com escolha de peça.
@@ -25,4 +25,4 @@ npm run test:e2e # ponta a ponta (Playwright); CHROMIUM_PATH=... para usar um Ch
 - `src/engine.js` — wrapper UCI do Web Worker do Stockfish (chamadas serializadas).
 - `src/main.js` — tabuleiro, fluxo da partida e interface.
 
-Limitações atuais: movimentos só por clique (sem arrastar).
+Movimentos por clique ou arrastando (mouse e toque). CI no GitHub Actions roda os testes unitários e ponta a ponta.

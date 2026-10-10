@@ -28,9 +28,17 @@
         <button id="new">Novo jogo</button>
         <button id="hint">Dica</button>
         <button id="undo">Desfazer</button>
+        <button id="review-btn">Revisar</button>
       </div>
       <p id="status">Carregando motor…</p>
       <div id="feedback" class="feedback"></div>
+      <div id="promo" class="promo" hidden>Promover para:
+        <button data-piece="q" aria-label="Dama">♛</button>
+        <button data-piece="r" aria-label="Torre">♜</button>
+        <button data-piece="b" aria-label="Bispo">♝</button>
+        <button data-piece="n" aria-label="Cavalo">♞</button>
+      </div>
+      <section id="review" class="review" hidden></section>
       <ol id="history"></ol>
     </aside>
   </main>

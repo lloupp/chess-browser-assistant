@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js';
 import { Engine } from './engine.js';
-import { lesson, formatEval } from './coach.js';
+import { lesson, formatEval, worstMoves } from './coach.js';
 
 const GLYPHS = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
 const $ = (id) => document.getElementById(id);
@@ -13,7 +13,8 @@ let selected = null;
 let lastMove = null;
 let hintSquares = [];
 let busy = false;
-const notes = []; // lesson per player move, aligned with history
+const notes = []; // lesson per player move: { fen, san, bestSan, kind, label, text, loss }
+let practice = null; // { fen, bestSan } while retrying a position from the review
 
 function squareName(file, rank) { return 'abcdefgh'[file] + (rank + 1); }
 
@@ -49,7 +50,8 @@ function render() {
     li.textContent = `${hist[i]} ${hist[i + 1] ?? ''}`;
     $('history').appendChild(li);
   }
-  $('undo').disabled = busy || chess.history().length < 2;
+  $('undo').disabled = busy || !!practice || chess.history().length < 2;
+  $('review-btn').disabled = busy || notes.length === 0;
   $('hint').disabled = busy || chess.turn() !== player || chess.isGameOver();
 }
 
@@ -68,24 +70,34 @@ function gameOverText() {
   return '';
 }
 
-function onSquare(sq) {
+async function onSquare(sq) {
   if (busy || chess.turn() !== player || chess.isGameOver()) return;
   const piece = chess.get(sq);
   if (selected) {
     const move = chess.moves({ square: selected, verbose: true }).find((m) => m.to === sq);
-    if (move) return playerMove({ from: selected, to: sq, promotion: 'q' });
+    if (move) {
+      const from = selected;
+      const promotion = move.promotion ? await choosePromotion() : undefined;
+      return playerMove({ from, to: sq, promotion });
+    }
   }
   selected = piece && piece.color === player ? sq : null;
   render();
 }
 
-async function playerMove(m) {
-  busy = true;
-  selected = null;
-  hintSquares = [];
+function choosePromotion() {
+  const box = $('promo');
+  box.hidden = false;
+  return new Promise((resolve) => {
+    box.querySelectorAll('button').forEach((b) => {
+      b.onclick = () => { box.hidden = true; resolve(b.dataset.piece); };
+    });
+  });
+}
+
+/** Plays the player's move and returns the coach's lesson for it. */
+async function grade(m) {
   const before = chess.fen();
-  render();
-  status('Professor analisando seu lance…');
   const bestInfo = await coach.analyze(before);
   const played = chess.move(m);
   lastMove = played;
@@ -98,9 +110,24 @@ async function playerMove(m) {
 
   const best = bestInfo.bestmove ? new Chess(before).move(bestInfo.bestmove) : null;
   const l = lesson({ bestCp: bestInfo.cp, playedCp, played, best, bestMate: bestInfo.mate, after: new Chess(chess.fen()) });
-  notes.push(l);
-  $('feedback').innerHTML = `<span class="tag ${l.kind}">${played.san}: ${l.label}</span> <span>${l.text}</span>`;
   setEval(player === 'w' ? playedCp : -playedCp);
+  return { ...l, fen: before, san: played.san, bestSan: best?.san ?? null };
+}
+
+function showLesson(l) {
+  $('feedback').innerHTML = `<span class="tag ${l.kind}">${l.san}: ${l.label}</span> <span>${l.text}</span>`;
+}
+
+async function playerMove(m) {
+  busy = true;
+  selected = null;
+  hintSquares = [];
+  render();
+  status('Professor analisando seu lance…');
+  const l = await grade(m);
+  showLesson(l);
+  if (practice) return practiceResult(l);
+  notes.push(l);
 
   if (chess.isGameOver()) return finish();
   status('Adversário pensando…');
@@ -116,19 +143,77 @@ function finish() {
   busy = false;
   const bad = notes.filter((n) => n.kind === 'mistake' || n.kind === 'blunder').length;
   status(`${gameOverText()} Erros/capivaradas na partida: ${bad}.`);
+  showReview();
   render();
+}
+
+/** Lists the costliest moves; each can be replayed from the position before it. */
+function showReview() {
+  const worst = worstMoves(notes);
+  const box = $('review');
+  box.hidden = false;
+  if (!worst.length) {
+    box.innerHTML = '<h2>Revisão</h2><p>Nenhum erro relevante nesta partida. Parabéns!</p>';
+    return;
+  }
+  box.innerHTML = '<h2>Revisão — tente de novo</h2><ul></ul>';
+  for (const n of worst) {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.textContent = 'Refazer';
+    btn.onclick = () => startPractice(n);
+    li.innerHTML = `<span class="tag ${n.kind}">${n.san}</span> ${n.label} `;
+    li.appendChild(btn);
+    box.querySelector('ul').appendChild(li);
+  }
+}
+
+function startPractice(n) {
+  practice = n;
+  chess = new Chess(n.fen);
+  selected = null; lastMove = null; hintSquares = [];
+  $('feedback').textContent = `Nesta posição você jogou ${n.san}. Encontre um lance melhor.`;
+  status('Treino: sua vez.');
+  render();
+}
+
+function practiceResult(l) {
+  busy = false;
+  if (l.kind === 'best' || l.kind === 'good') {
+    status(`Acertou! (${practice.bestSan ? `o motor jogaria ${practice.bestSan}` : 'boa escolha'})`);
+  } else {
+    chess = new Chess(practice.fen);
+    lastMove = null;
+    status('Ainda não. Tente outro lance (ou use a Dica).');
+  }
+  render();
+}
+
+/** Start position: optional ?fen=... in the URL (e.g. to practice an endgame), else the standard one. */
+function startPosition() {
+  const fen = new URLSearchParams(location.search).get('fen');
+  if (fen) {
+    try { return new Chess(fen); } catch { return null; }
+  }
+  return new Chess();
 }
 
 async function newGame() {
   busy = true;
-  chess = new Chess();
+  chess = startPosition();
+  const badFen = !chess;
+  chess ??= new Chess();
   player = $('color').value;
-  selected = null; lastMove = null; hintSquares = []; notes.length = 0;
+  selected = null; lastMove = null; hintSquares = []; notes.length = 0; practice = null;
+  $('review').hidden = true;
   opponent.setOption('Skill Level', $('level').value);
-  $('feedback').innerHTML = 'Faça seu lance. Após cada jogada, o professor explica se foi bom e o que seria melhor.';
+  $('feedback').textContent = badFen
+    ? 'FEN inválida na URL; começando da posição inicial.'
+    : 'Faça seu lance. Após cada jogada, o professor explica se foi bom e o que seria melhor.';
   setEval(0);
   render();
-  if (player === 'b') {
+  if (chess.isGameOver()) return finish();
+  if (chess.turn() !== player) {
     status('Adversário pensando…');
     lastMove = chess.move((await opponent.analyze(chess.fen(), 'go movetime 400')).bestmove);
   }
@@ -138,6 +223,7 @@ async function newGame() {
 }
 
 $('new').onclick = newGame;
+$('review-btn').onclick = showReview;
 $('hint').onclick = async () => {
   busy = true; render();
   status('Procurando a melhor ideia…');

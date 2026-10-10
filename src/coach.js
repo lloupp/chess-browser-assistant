@@ -94,3 +94,11 @@ export function lesson({ bestCp, playedCp, played, best, bestMate, after }) {
 }
 
 export { PIECE_NAMES };
+
+/** Picks the player's costliest moves (inaccuracy or worse), worst first. */
+export function worstMoves(notes, limit = 5) {
+  return notes
+    .filter((n) => n.kind === 'inaccuracy' || n.kind === 'mistake' || n.kind === 'blunder')
+    .sort((a, b) => b.loss - a.loss)
+    .slice(0, limit);
+}

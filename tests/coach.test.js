@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Chess } from 'chess.js';
-import { parseInfo, toCp, classify, formatEval, hangingPieces, lesson } from '../src/coach.js';
+import { parseInfo, toCp, classify, formatEval, hangingPieces, lesson, worstMoves } from '../src/coach.js';
 
 describe('parseInfo', () => {
   it('reads cp score and pv', () => {
@@ -75,5 +75,16 @@ describe('lesson', () => {
     const best = new Chess(fen).move('Ra8#');
     const l = lesson({ bestCp: 9999, playedCp: 0, played, best, bestMate: 1, after: c });
     expect(l.text).toContain('Havia mate em 1 começando com Ra8#');
+  });
+});
+
+describe('worstMoves', () => {
+  it('keeps only costly moves, worst first, limited', () => {
+    const notes = [
+      { kind: 'best', loss: 0 }, { kind: 'mistake', loss: 200 },
+      { kind: 'blunder', loss: 700 }, { kind: 'inaccuracy', loss: 90 }, { kind: 'good', loss: 40 },
+    ];
+    expect(worstMoves(notes).map((n) => n.loss)).toEqual([700, 200, 90]);
+    expect(worstMoves(notes, 1)).toHaveLength(1);
   });
 });

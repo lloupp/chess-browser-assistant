@@ -1,0 +1,24 @@
+:root { --light: #eed8b5; --dark: #b58862; --bg: #1f2328; --fg: #e6e6e6; --panel: #2b3036; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.4 system-ui, sans-serif; }
+main { display: flex; flex-wrap: wrap; gap: 20px; padding: 16px; justify-content: center; }
+.board-wrap { display: flex; gap: 6px; }
+#board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); width: min(calc(100vw - 52px), 560px); aspect-ratio: 1; user-select: none; }
+.sq { display: flex; line-height: 1; min-width: 0; min-height: 0; overflow: hidden; align-items: center; justify-content: center; font-size: min(8vw, 52px); cursor: pointer; position: relative; }
+.sq.l { background: var(--light); } .sq.d { background: var(--dark); }
+.sq.sel { box-shadow: inset 0 0 0 4px #3a7bd5; }
+.sq.last { background-color: #cdd26a; }
+.sq.hint { box-shadow: inset 0 0 0 4px #2ea043; }
+.sq.target::after { content: ''; width: 26%; height: 26%; border-radius: 50%; background: rgba(0,0,0,.25); position: absolute; }
+.pw { color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000; } .pb { color: #111; }
+#evalbar { width: 14px; background: #222; position: relative; border: 1px solid #555; }
+#evalfill { position: absolute; bottom: 0; width: 100%; height: 50%; background: #f0f0f0; transition: height .3s; }
+aside { width: min(92vw, 340px); background: var(--panel); padding: 14px; border-radius: 8px; }
+h1 { font-size: 20px; margin: 0 0 10px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button, select { background: #3a4048; color: var(--fg); border: 1px solid #555; border-radius: 6px; padding: 6px 10px; font: inherit; }
+button:disabled { opacity: .5; }
+.feedback { min-height: 60px; padding: 8px; border-radius: 6px; margin: 8px 0; background: #22262b; }
+.feedback .tag { font-weight: 700; }
+.best, .good { color: #56d364; } .inaccuracy { color: #e3b341; } .mistake { color: #f0883e; } .blunder { color: #f85149; }
+#history { columns: 2; padding-left: 22px; max-height: 240px; overflow: auto; }

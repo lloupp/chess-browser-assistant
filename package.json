@@ -1,0 +1,35 @@
+{
+  "name": "chess-browser-assistant",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "postinstall": "node scripts/copy-engine.cjs",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lloupp/chess-browser-assistant.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lloupp/chess-browser-assistant/issues"
+  },
+  "homepage": "https://github.com/lloupp/chess-browser-assistant#readme",
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "stockfish": "^19.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  },
+  "type": "module",
+  "private": true
+}

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Professor de Xadrez</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <main>
+    <section class="board-wrap">
+      <div id="evalbar" title="Avaliação"><div id="evalfill"></div></div>
+      <div id="board" aria-label="Tabuleiro"></div>
+    </section>
+    <aside>
+      <h1>Professor de Xadrez</h1>
+      <div class="controls">
+        <label>Cor <select id="color"><option value="w">Brancas</option><option value="b">Pretas</option></select></label>
+        <label>Nível
+          <select id="level">
+            <option value="0">Iniciante</option>
+            <option value="5" selected>Fácil</option>
+            <option value="10">Médio</option>
+            <option value="15">Difícil</option>
+            <option value="20">Máximo</option>
+          </select>
+        </label>
+        <button id="new">Novo jogo</button>
+        <button id="hint">Dica</button>
+        <button id="undo">Desfazer</button>
+      </div>
+      <p id="status">Carregando motor…</p>
+      <div id="feedback" class="feedback"></div>
+      <ol id="history"></ol>
+    </aside>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

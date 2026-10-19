@@ -65,8 +65,10 @@ public final class MainActivityTest {
                 ), 1500);
             });
 
-            assertTrue("WebView did not become ready", latch.await(15, TimeUnit.SECONDS));
-            assertEquals("\"appassets.androidplatform.net|64\"", value.get());
+            assertTrue("WebView did not become ready", pageLatch.await(25, TimeUnit.SECONDS));
+            assertEquals("\"appassets.androidplatform.net|64|object\"", value.get());
+            assertTrue("Stockfish worker did not respond", engineLatch.await(25, TimeUnit.SECONDS));
+            assertEquals("\"ok\"", engineValue.get());
         }
     }
 }

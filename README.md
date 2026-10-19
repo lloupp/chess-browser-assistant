@@ -9,6 +9,23 @@ análise; tabuleiro de treino em `http://127.0.0.1:8787/chess-board.html`.
 Outras rotas e partidas humanas identificadas são bloqueadas por código.
 Não há configuração para desativar esse bloqueio.
 
+## Jogar contra o computador
+
+Abra o popup da extensão e clique **Jogar contra Stockfish**. Uma nova aba
+abre um tabuleiro próprio: escolha brancas ou pretas e a dificuldade, depois
+clique **Nova partida**. Toque ou clique na peça e no destino; as casas legais
+são marcadas. Stockfish responde automaticamente apenas nesse tabuleiro.
+Promoção permite escolher dama, torre, bispo ou cavalo. Roque, en passant,
+xeque-mate e empates são controlados por chess.js; os lances ficam no histórico.
+
+Os três níveis limitam a profundidade a 1, 4 e 10; são limites de busca,
+não ratings Elo calibrados. Não há relógio nem persistência de partidas neste
+ciclo. Nova partida cancela o cálculo anterior. Falhas oferecem tentativa nova.
+O tabuleiro usa o Worker/WASM incluído na extensão, sem API ou conta.
+Requer Chrome/Chromium com extensões no computador; Chrome Android não carrega
+esta extensão. O layout é responsivo, mas isso não adiciona suporte a extensões
+no Chrome Android.
+
 ## Instalação rápida
 
 O ZIP **Chess_Browser_Assistant_Extensao.zip** contém somente os arquivos

@@ -62,3 +62,13 @@ continua dependendo de teste físico.
 
 Não considerar o MVP integralmente aceito até Chromium, Chess.com e CI
 serem validados. PR #1: https://github.com/lloupp/chess-browser-assistant/pull/1.
+
+
+## Modo contra Stockfish — 2026-10-06
+
+Nova página play.html e botão no popup. Build, lint, TypeScript e os 39 testes
+passaram localmente. Adicionado E2E com Stockfish real: lance humano/resposta,
+início de pretas, orientação e reinício durante busca. Execução local do E2E
+bloqueada: download Chromium devolveu arquivo inválido; navegador indisponível.
+CI executa os quatro cenários. Promoção e término ainda precisam de validação
+física na nova página. Nenhum merge realizado.

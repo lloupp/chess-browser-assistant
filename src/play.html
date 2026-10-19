@@ -1,1 +1,107 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Jogar contra Stockfish</title><link rel="stylesheet" href="play.css"></head><body><main><header><p class="eyebrow">CHESS BROWSER ASSISTANT</p><h1>Tu contra Stockfish.</h1><p>Um tabuleiro, teu próximo lance. Computador local.</p></header><div class="layout"><section><div id="board" aria-label="Tabuleiro de xadrez"></div></section><aside><label>Tuas peças<select id="color"><option value="w">Brancas</option><option value="b">Pretas</option></select></label><label>Dificuldade<select id="level"><option value="1">Iniciante</option><option value="4" selected>Intermediário</option><option value="10">Avançado</option></select></label><button id="new">Nova partida</button><button id="retry" hidden>Tentar novamente</button><p id="status" role="status" aria-live="polite"></p><p id="last"></p><h2>Lances</h2><ol id="history"></ol><p class="help">Toque na peça e depois no destino. Cor e dificuldade são aplicadas ao iniciar uma nova partida.</p></aside></div><dialog id="promotion"><h2>Promover peão</h2><button data-piece="q">Dama</button><button data-piece="r">Torre</button><button data-piece="b">Bispo</button><button data-piece="n">Cavalo</button></dialog></main><script src="play.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101c1b">
+  <title>Xadrez Local</title>
+  <link rel="stylesheet" href="play.css">
+</head>
+<body>
+<main>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">XADREZ LOCAL</p>
+      <h1>Tu contra Stockfish</h1>
+    </div>
+    <span id="game-badge" class="badge">Partida</span>
+  </header>
+
+  <section class="game-shell" aria-label="Partida">
+    <div class="clock-row" aria-label="Relógios">
+      <div id="clock-black-wrap" class="clock"><span>Pretas</span><strong id="clock-black">—</strong></div>
+      <div id="clock-white-wrap" class="clock"><span>Brancas</span><strong id="clock-white">—</strong></div>
+    </div>
+
+    <div id="board" aria-label="Tabuleiro de xadrez"></div>
+
+    <div class="status-card">
+      <p id="status" role="status" aria-live="polite"></p>
+      <p id="last" class="muted"></p>
+      <p id="practice-feedback" class="feedback" aria-live="polite"></p>
+      <p id="hint-result" class="feedback" aria-live="polite"></p>
+    </div>
+
+    <nav class="actions" aria-label="Ações da partida">
+      <button id="undo" type="button">↶ <span>Desfazer</span></button>
+      <button id="hint" type="button" hidden>◎ <span>Dica</span></button>
+      <button id="rematch" type="button">↻ <span>Revanche</span></button>
+      <button id="tools" type="button">⇄ <span>PGN/FEN</span></button>
+      <button id="new" class="primary" type="button">＋ <span>Nova</span></button>
+    </nav>
+
+    <button id="retry" class="wide" type="button" hidden>Tentar novamente</button>
+    <button id="review" class="wide secondary" type="button" hidden>Analisar partida offline</button>
+
+    <details class="history-panel">
+      <summary>Histórico de lances</summary>
+      <ol id="history"></ol>
+    </details>
+  </section>
+
+  <dialog id="settings-dialog" class="sheet">
+    <form id="settings-form">
+      <div class="dialog-head"><div><p class="eyebrow">NOVA PARTIDA</p><h2>Configurar jogo</h2></div></div>
+      <div class="form-grid">
+        <label>Tuas peças
+          <select id="color"><option value="w">Brancas</option><option value="b">Pretas</option></select>
+        </label>
+        <label>Dificuldade
+          <select id="difficulty"></select>
+        </label>
+        <label>Estilo do oponente
+          <select id="style"><option value="precise">Precisão por Elo</option><option value="human">Mais humano</option></select>
+        </label>
+        <label>Modo
+          <select id="mode"><option value="play">Partida</option><option value="practice">Prática com dicas</option></select>
+        </label>
+        <label>Relógio
+          <select id="time-control"></select>
+        </label>
+      </div>
+      <p class="help">Tudo roda localmente. O modo “Mais humano” usa a habilidade reduzida do Stockfish para variar mais os erros.</p>
+      <div class="dialog-actions"><button id="settings-cancel" type="button">Cancelar</button><button class="primary" type="submit">Iniciar</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="tools-dialog" class="sheet">
+    <div class="dialog-head"><div><p class="eyebrow">INTEROPERABILIDADE</p><h2>PGN e FEN</h2></div></div>
+    <label>FEN atual<textarea id="fen-text" rows="3" spellcheck="false"></textarea></label>
+    <div class="button-row"><button id="copy-fen" type="button">Copiar FEN</button><button id="import-fen" type="button">Jogar desta posição</button></div>
+    <label>PGN<textarea id="pgn-text" rows="8" spellcheck="false"></textarea></label>
+    <div class="button-row"><button id="copy-pgn" type="button">Copiar PGN</button><button id="import-pgn" type="button">Importar PGN</button></div>
+    <p id="tool-message" class="feedback" aria-live="polite"></p>
+    <div class="dialog-actions"><button id="tools-close" type="button">Fechar</button><button id="share" class="primary" type="button">Compartilhar</button></div>
+  </dialog>
+
+  <dialog id="review-dialog" class="sheet">
+    <div class="dialog-head"><div><p class="eyebrow">ANÁLISE LOCAL</p><h2>Revisão da partida</h2></div></div>
+    <p id="review-summary" aria-live="polite"></p>
+    <ol id="review-list" class="review-list"></ol>
+    <p class="help">A revisão usa Stockfish local e destaca os lances com maior perda de avaliação. Nenhum dado sai do aparelho.</p>
+    <div class="dialog-actions"><button id="review-close" type="button">Fechar</button></div>
+  </dialog>
+
+  <dialog id="promotion" class="promotion">
+    <h2>Promover peão</h2>
+    <div class="button-row">
+      <button data-piece="q" type="button">Dama</button>
+      <button data-piece="r" type="button">Torre</button>
+      <button data-piece="b" type="button">Bispo</button>
+      <button data-piece="n" type="button">Cavalo</button>
+    </div>
+  </dialog>
+</main>
+<script src="play.js"></script>
+</body>
+</html>

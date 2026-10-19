@@ -23,6 +23,7 @@ import {
   type GameSnapshot
 } from './game/persistence';
 import { centipawnLoss, formatEvaluation, grade } from './game/review';
+import { explainPlayedMove, guidanceFor } from './game/coach';
 
 declare global { interface Window { AndroidShare?:{share(text:string):void} } }
 
@@ -47,6 +48,7 @@ let busyKind:'engine'|'hint'|'practice'|'review'|undefined;
 let failed=false;
 let hintMessage='';
 let practiceMessage='';
+let coachMessage='';
 let timeoutWinner:Color|undefined;
 let whiteMs=0;
 let blackMs=0;
@@ -220,7 +222,7 @@ function statusText(){
   if(failed) return 'Não foi possível calcular. Tente novamente.';
   if(busyKind==='engine') return 'Stockfish está pensando…';
   if(busyKind==='hint') return 'Calculando uma dica…';
-  if(busyKind==='practice') return 'Avaliando teu lance…';
+  if(busyKind==='practice') return gameMode==='guided'?'Professor está analisando teu lance…':'Avaliando teu lance…';
   if(busyKind==='review') return 'Analisando a partida…';
   if(resumed){resumed=false;return 'Partida retomada. '+(chess.turn()===side?'Tua vez.':'Vez do Stockfish.');}
   return (chess.turn()===side?'Tua vez.':'Vez do Stockfish.')+(chess.isCheck()?' Xeque!':'');
@@ -266,13 +268,22 @@ function render(){
 
   $('status').textContent=statusText();
   $('last').textContent=last?'Último lance: '+last.san:'';
-  $('practice-feedback').textContent=practiceMessage;
+  $('practice-feedback').textContent=gameMode==='practice'?practiceMessage:'';
   $('hint-result').textContent=hintMessage;
+  $('coach-panel').hidden=gameMode!=='guided';
+  if(gameMode==='guided'){
+    const guidance=guidanceFor(chess,side);
+    $('coach-phase').textContent=guidance.phase;
+    $('coach-goal').textContent=guidance.goal;
+    $('coach-tip').textContent=guidance.tip;
+    $('coach-feedback').textContent=coachMessage;
+    $('coach-feedback').hidden=!coachMessage;
+  }
   $('retry').hidden=!failed;
-  $('hint').hidden=gameMode!=='practice'||gameEnded()||chess.turn()!==side;
+  $('hint').hidden=gameMode==='play'||gameEnded()||chess.turn()!==side;
   $('review').hidden=!gameEnded()||moves.length===0;
   $('undo').toggleAttribute('disabled',moves.length===0||busyKind==='review');
-  $('game-badge').textContent=(gameMode==='practice'?'Prática':'Partida')+' · '+currentProfile().label.replace(/ ·.*/,'');
+  $('game-badge').textContent=(gameMode==='guided'?'Guiado':gameMode==='practice'?'Prática':'Partida')+' · '+currentProfile().label.replace(/ ·.*/,'');
   updateClocks();
 }
 
@@ -301,11 +312,17 @@ function humanMove(from:Square,to:Square,promotion?:string){
   const move=chess.move({from,to,...(promotion?{promotion}:{})});
   selected=undefined;
   hintMessage='';
+  coachMessage=gameMode==='guided'?'Analisando teu lance…':'';
   failed=false;
   saveGame();
   render();
-  if(gameEnded()){pauseClock();saveGame();render();return;}
-  if(gameMode==='practice') void assessThenReply(beforeFen,chess.fen(),move.san);
+  if(gameEnded()){
+    if(gameMode==='guided') coachMessage=chess.isCheckmate()
+      ? 'Xeque-mate! Excelente oportunidade para rever como o ataque ao rei foi construído.'
+      : 'Partida encerrada. Revê os lances para reforçar o aprendizado.';
+    pauseClock();saveGame();render();return;
+  }
+  if(gameMode==='practice'||gameMode==='guided') void assessThenReply(beforeFen,chess.fen(),move.san);
   else void computerMove();
 }
 
@@ -323,11 +340,19 @@ async function assessThenReply(beforeFen:string,afterFen:string,playedSan:string
     const loss=centipawnLoss(best.score,after.score);
     const bestGame=new Chess(beforeFen);
     const bestMove=best.bestmove&&best.bestmove!=='(none)'?bestGame.move(parseMove(best.bestmove)):undefined;
-    practiceMessage=grade(loss)+': '+playedSan+
-      (bestMove&&bestMove.san!==playedSan?' · melhor: '+bestMove.san:'')+
-      (loss!==undefined?' · perda '+(loss/100).toFixed(1):'');
+    if(gameMode==='guided'){
+      const played=new Chess(beforeFen).move(playedSan);
+      coachMessage=explainPlayedMove(played,beforeFen,loss,bestMove?.san);
+    }else{
+      practiceMessage=grade(loss)+': '+playedSan+
+        (bestMove&&bestMove.san!==playedSan?' · melhor: '+bestMove.san:'')+
+        (loss!==undefined?' · perda '+(loss/100).toFixed(1):'');
+    }
   }catch{
-    if(token===generation) practiceMessage='Não foi possível avaliar este lance.';
+    if(token===generation){
+      if(gameMode==='guided') coachMessage='Não foi possível avaliar este lance. Continua a jogar e usa as orientações da fase.';
+      else practiceMessage='Não foi possível avaliar este lance.';
+    }
   }finally{
     if(auxEngine===job){job?.dispose();auxEngine=undefined;}
     if(token===generation){busyKind=undefined;saveGame();render();void computerMove();}
@@ -383,6 +408,7 @@ function startNewGame(fen=DEFAULT_POSITION){
   failed=false;
   hintMessage='';
   practiceMessage='';
+  coachMessage='';
   resetClock();
   saveGame();
   render();
@@ -411,6 +437,7 @@ function undoMove(){
   failed=false;
   hintMessage='';
   practiceMessage='Lance desfeito.';
+  coachMessage=gameMode==='guided'?'Lance desfeito. Observa a posição e procura outra ideia.':'';
   resumeClock();
   saveGame();
   render();
@@ -418,7 +445,7 @@ function undoMove(){
 }
 
 async function requestHint(){
-  if(gameMode!=='practice'||busyKind||gameEnded()||chess.turn()!==side) return;
+  if(gameMode==='play'||busyKind||gameEnded()||chess.turn()!==side) return;
   const token=++generation,fen=chess.fen();
   busyKind='hint';hintMessage='';render();
   let job:UciEngine|undefined;
@@ -492,7 +519,7 @@ function importPgn(){
     cancelWork();
     startFen=fenHeader;
     chess=imported;
-    selected=undefined;failed=false;timeoutWinner=undefined;hintMessage='';practiceMessage='';
+    selected=undefined;failed=false;timeoutWinner=undefined;hintMessage='';practiceMessage='';coachMessage='';
     resetClock();
     saveGame();
     toolsDialog.close();

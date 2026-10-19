@@ -47,7 +47,7 @@ public final class MainActivityTest {
                 WebView webView = activity.findViewById(R.id.webview);
                 assertNotNull(webView);
                 webView.postDelayed(() -> webView.evaluateJavascript(
-                    "location.host+'|'+document.querySelectorAll('#board .square').length+'|'+typeof AndroidShare",
+                    "location.host+'|'+document.querySelectorAll('#board .square').length+'|'+typeof AndroidShare+'|'+Boolean(document.getElementById('coach-panel'))",
                     result -> {
                         value.set(result);
                         pageLatch.countDown();
@@ -66,7 +66,7 @@ public final class MainActivityTest {
             });
 
             assertTrue("WebView did not become ready", pageLatch.await(25, TimeUnit.SECONDS));
-            assertEquals("\"appassets.androidplatform.net|64|object\"", value.get());
+            assertEquals("\"appassets.androidplatform.net|64|object|true\"", value.get());
             assertTrue("Stockfish worker did not respond", engineLatch.await(25, TimeUnit.SECONDS));
             assertEquals("\"ok\"", engineValue.get());
         }

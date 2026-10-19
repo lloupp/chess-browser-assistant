@@ -1,0 +1,7 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Treino local CBA</title>
+<style>body{font:16px system-ui;margin:30px;background:#edf3ef}#board{width:480px;height:480px;position:relative;display:grid;grid-template-columns:repeat(8,1fr);margin-top:20px;max-width:80vw;max-height:80vw}.cell{background:#ecdab9}.cell.dark{background:#688a6d}.piece{position:absolute;width:12.5%;height:12.5%;display:flex;justify-content:center;align-items:center;font-size:45px;line-height:1;pointer-events:none}.white{color:white;text-shadow:0 1px 2px black}.black{color:#171f19}button{padding:8px;margin:4px}input{width:450px;max-width:90vw;padding:8px}</style>
+<h1>Treino local · Chess Browser Assistant</h1><p>Tabuleiro de estudo sem partidas online. Carregue a extensão e aguarde a seta.</p>
+<button id="initial">Inicial</button><button id="e4">e4</button><button id="e5">e4 e5</button><button id="flip">Inverter</button><button id="promotion">Promoção</button><button id="mate">Mate</button>
+<div><input id="custom" placeholder="FEN completo"><button id="load">Carregar FEN</button></div>
+<div id="board" data-cba-local="training" data-orientation="white" role="img" aria-label="Tabuleiro de treinamento"></div><pre id="current"></pre>
+<script type="module" src="fixture.js"></script></html>

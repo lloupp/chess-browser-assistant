@@ -32,6 +32,16 @@
       <p id="hint-result" class="feedback" aria-live="polite"></p>
     </div>
 
+    <section id="coach-panel" class="coach-panel" aria-label="Professor de xadrez" hidden>
+      <div class="coach-head">
+        <strong>Professor de xadrez</strong>
+        <span id="coach-phase" class="coach-phase"></span>
+      </div>
+      <p id="coach-goal" class="coach-goal"></p>
+      <p id="coach-tip" class="coach-tip"></p>
+      <p id="coach-feedback" class="coach-feedback" role="status" aria-live="polite" hidden></p>
+    </section>
+
     <nav class="actions" aria-label="Ações da partida">
       <button id="undo" type="button">↶ <span>Desfazer</span></button>
       <button id="hint" type="button" hidden>◎ <span>Dica</span></button>
@@ -63,7 +73,7 @@
           <select id="style"><option value="precise">Precisão por Elo</option><option value="human">Mais humano</option></select>
         </label>
         <label>Modo
-          <select id="mode"><option value="play">Partida</option><option value="practice">Prática com dicas</option></select>
+          <select id="mode"><option value="play">Partida</option><option value="practice">Prática com dicas</option><option value="guided">Guiado / aprender jogando</option></select>
         </label>
         <label>Relógio
           <select id="time-control"></select>

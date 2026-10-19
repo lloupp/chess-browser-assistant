@@ -49,6 +49,10 @@ let failed=false;
 let hintMessage='';
 let practiceMessage='';
 let coachMessage='';
+interface CoachVisual { position:string; from:Square; to:Square; label:string }
+let coachVisual:CoachVisual|undefined;
+let coachSearchSerial=0;
+let coachSearching=false;
 let timeoutWinner:Color|undefined;
 let whiteMs=0;
 let blackMs=0;
@@ -87,6 +91,7 @@ function disposeAux(reason='Análise cancelada'){
 
 function cancelWork(reason='Análise cancelada'){
   generation++;
+  clearCoachVisual();
   disposeMain(reason);
   disposeAux(reason);
   busyKind=undefined;
@@ -109,6 +114,46 @@ async function strongAuxEngine(){
   auxEngine=engine;
   await engine.init({'UCI_LimitStrength':false,'Skill Level':20});
   return engine;
+}
+
+// Keep visual-hint searches separate from the game engine generation.
+function clearCoachVisual(){
+  coachSearchSerial++;
+  coachVisual=undefined;
+  coachSearching=false;
+}
+function setCoachVisual(move:{from:Square;to:Square;san:string;piece:string},position:string){
+  coachVisual={
+    position,
+    from:move.from,
+    to:move.to,
+    label:'Mexe '+(pieceNames[move.piece]??'a peça')+' de '+move.from+' para '+move.to+' ('+move.san+').'
+  };
+}
+// The player may make a move while a visual suggestion is calculating.
+async function refreshGuidedSuggestion(){
+  if(gameMode!=='guided'||busyKind||failed||gameEnded()||chess.turn()!==side||document.hidden) return;
+  const serial=++coachSearchSerial,position=chess.fen();
+  coachVisual=undefined;
+  coachSearching=true;
+  render();
+  let job:UciEngine|undefined;
+  try{
+    job=await strongAuxEngine();
+    const result=await job.analyze(position,10,500);
+    if(serial!==coachSearchSerial||chess.fen()!==position||gameMode!=='guided'||
+      busyKind||gameEnded()||chess.turn()!==side||document.hidden) return;
+    const move=new Chess(position).move(parseMove(result.bestmove));
+    setCoachVisual(move,position);
+  }catch{
+    // Game-phase guidance stays visible if the offline engine is unavailable.
+  }finally{
+    if(auxEngine===job){job?.dispose();auxEngine=undefined;}
+    if(serial===coachSearchSerial){
+      coachSearching=false;
+      render();
+    }
+  }
 }
 
 function effectiveClocks(now=Date.now()){
@@ -235,6 +280,8 @@ function render(){
   board.setAttribute('aria-busy',String(Boolean(busyKind)));
   const legal=selected?chess.moves({square:selected,verbose:true}):[];
   const history=chess.history({verbose:true}),last=history.at(-1);
+  const visual=gameMode==='guided'&&chess.turn()===side&&!gameEnded()&&
+    coachVisual?.position===chess.fen()?coachVisual:undefined;
   for(let row=0;row<8;row++) for(let col=0;col<8;col++){
     const file=side==='w'?col:7-col,rank=side==='w'?8-row:row+1;
     const square=(String.fromCharCode(97+file)+rank) as Square;
@@ -245,9 +292,11 @@ function render(){
     button.disabled=Boolean(busyKind)||gameEnded()||chess.turn()!==side;
     button.className='square'+((file+rank)%2===0?' dark':'')+(piece?.color==='w'?' white-piece':'')+
       (square===selected?' selected':'')+(legal.some(move=>move.to===square)?' legal':'')+
-      ((last?.from===square||last?.to===square)?' previous':'');
+      ((last?.from===square||last?.to===square)?' previous':'')+
+      (visual?.from===square?' coach-from':'')+(visual?.to===square?' coach-to':'');
     button.textContent=piece?glyphs[piece.color+piece.type]:'';
-    button.setAttribute('aria-label',square+(piece?' '+pieceNames[piece.type]+' '+(piece.color==='w'?'branca':'preta'):' vazia'));
+    button.setAttribute('aria-label',square+(piece?' '+pieceNames[piece.type]+' '+(piece.color==='w'?'branca':'preta'):' vazia')+
+      (visual?.from===square?' · peça sugerida':visual?.to===square?' · destino sugerido':''));
     button.setAttribute('aria-pressed',String(square===selected));
     const coordinate=document.createElement('span');
     coordinate.className='coordinate';
@@ -276,6 +325,9 @@ function render(){
     $('coach-phase').textContent=guidance.phase;
     $('coach-goal').textContent=guidance.goal;
     $('coach-tip').textContent=guidance.tip;
+    const visualText=visual?.label??(coachSearching&&chess.turn()===side?'Calculando sugestão visual…':'');
+    $('coach-visual-text').textContent=visualText;
+    $('coach-visual-text').hidden=!visualText;
     $('coach-feedback').textContent=coachMessage;
     $('coach-feedback').hidden=!coachMessage;
   }
@@ -310,6 +362,8 @@ function humanMove(from:Square,to:Square,promotion?:string){
   const beforeFen=chess.fen();
   if(!finishTurnClock(side)) return;
   const move=chess.move({from,to,...(promotion?{promotion}:{})});
+  clearCoachVisual();
+  if(gameMode==='guided'&&auxEngine) disposeAux('Posição alterada');
   selected=undefined;
   hintMessage='';
   coachMessage=gameMode==='guided'?'Analisando teu lance…':'';
@@ -382,6 +436,8 @@ async function computerMove(){
     if(token===generation){
       busyKind=undefined;
       render();
+      if(gameMode==='guided'&&!failed&&chess.turn()===side&&!gameEnded())
+        void refreshGuidedSuggestion();
     }
   }
 }
@@ -414,6 +470,7 @@ function startNewGame(fen=DEFAULT_POSITION){
   render();
   if(settingsDialog.open) settingsDialog.close();
   if(chess.turn()!==side&&!gameEnded()) void computerMove();
+  else if(gameMode==='guided') void refreshGuidedSuggestion();
 }
 
 function rematch(){
@@ -442,10 +499,12 @@ function undoMove(){
   saveGame();
   render();
   if(chess.turn()!==side&&!gameEnded()) void computerMove();
+  else if(gameMode==='guided') void refreshGuidedSuggestion();
 }
 
 async function requestHint(){
   if(gameMode==='play'||busyKind||gameEnded()||chess.turn()!==side) return;
+  clearCoachVisual();
   const token=++generation,fen=chess.fen();
   busyKind='hint';hintMessage='';render();
   let job:UciEngine|undefined;
@@ -456,6 +515,7 @@ async function requestHint(){
     const copy=new Chess(fen);
     const move=copy.move(parseMove(result.bestmove));
     hintMessage='Sugestão: '+move.san+' · avaliação '+formatEvaluation(result.score);
+    if(gameMode==='guided') setCoachVisual(move,fen);
   }catch{
     if(token===generation) hintMessage='Dica indisponível agora.';
   }finally{
@@ -525,6 +585,7 @@ function importPgn(){
     toolsDialog.close();
     render();
     if(chess.turn()!==side&&!gameEnded()) void computerMove();
+    else if(gameMode==='guided') void refreshGuidedSuggestion();
   }catch{
     $('tool-message').textContent='PGN inválido.';
   }
@@ -635,8 +696,16 @@ for(const button of promotionDialog.querySelectorAll<HTMLButtonElement>('button'
 promotionDialog.addEventListener('cancel',()=>{pendingPromotion=undefined;});
 
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){pauseClock();saveGame();}
-  else {resumeClock();render();}
+  if(document.hidden){
+    pauseClock();saveGame();
+    if(gameMode==='guided'){
+      clearCoachVisual();
+      if(!busyKind) disposeAux('Aplicativo em segundo plano');
+    }
+  }else{
+    resumeClock();render();
+    if(gameMode==='guided') void refreshGuidedSuggestion();
+  }
 });
 window.addEventListener('pagehide',()=>{
   pauseClock();saveGame();cancelWork();
@@ -648,6 +717,10 @@ if(!restoreSavedGame()){
   timeControlId='none';
   resetClock();
 }
+function resumeInitialGame(){
+  if(chess.turn()!==side&&!gameEnded()) void computerMove();
+  else if(gameMode==='guided') void refreshGuidedSuggestion();
+}
 syncSettings();
 render();
-if(chess.turn()!==side&&!gameEnded()) void computerMove();
+resumeInitialGame();

@@ -1,6 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import {Chess,DEFAULT_POSITION} from 'chess.js';
-import {DIFFICULTIES,engineOptions,timeControl} from '../src/game/config';
+import {DIFFICULTIES,engineOptions,normalizedMode,timeControl} from '../src/game/config';
+import {explainPlayedMove,gamePhase,guidanceFor} from '../src/game/coach';
 import {normalizeSnapshot,replay,type GameSnapshot} from '../src/game/persistence';
 import {centipawnLoss,grade,scoreToCp} from '../src/game/review';
 
@@ -35,5 +36,38 @@ describe('post-game review',()=>{
     expect(centipawnLoss({type:'cp',value:50},{type:'cp',value:-20})).toBe(30);
     expect(grade(20)).toBe('Excelente');
     expect(grade(500)).toBe('Erro grave');
+  });
+});
+
+describe('guided chess lessons',()=>{
+  it('normalizes and persists guided mode while keeping other modes',()=>{
+    expect(normalizedMode('guided')).toBe('guided');
+    expect(normalizedMode('practice')).toBe('practice');
+    expect(normalizedMode('play')).toBe('play');
+    expect(normalizedMode('unknown')).toBe('play');
+    const restored=normalizeSnapshot({
+      version:2,startFen:DEFAULT_POSITION,moves:['e4','e5'],side:'w',
+      difficulty:'beginner',style:'precise',mode:'guided',timeControl:'none'
+    });
+    expect(restored?.mode).toBe('guided');
+    expect(restored && replay(restored).history()).toEqual(['e4','e5']);
+  });
+  it('teaches opening, check response and an endgame without an online service',()=>{
+    const opening=new Chess();
+    expect(gamePhase(opening)).toBe('Abertura');
+    expect(guidanceFor(opening,'w').goal).toContain('centro');
+    const inCheck=new Chess('7k/8/8/8/8/8/8/rK6 w - - 0 1');
+    expect(guidanceFor(inCheck,'w').goal).toBe('Sair do xeque');
+    const ending=new Chess('7k/8/8/8/8/8/8/K7 w - - 0 1');
+    expect(gamePhase(ending)).toBe('Final');
+    expect(guidanceFor(ending,'w').goal).toContain('rei');
+  });
+  it('offers justified feedback and an alternative only when analyzed',()=>{
+    const game=new Chess();
+    const before=game.fen();
+    const played=game.move('e4');
+    expect(explainPlayedMove(played,before,10)).toContain('Excelente: e4');
+    expect(explainPlayedMove(played,before,210,'d4')).toContain('Stockfish sugere d4');
+    expect(explainPlayedMove(played,before,undefined)).toContain('avaliação numérica não ficou disponível');
   });
 });

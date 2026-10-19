@@ -2,7 +2,7 @@ import type { Color } from '../types';
 
 export type DifficultyId='beginner'|'casual'|'intermediate'|'strong'|'master';
 export type OpponentStyle='precise'|'human';
-export type GameMode='play'|'practice';
+export type GameMode='play'|'practice'|'guided';
 export type TimeControlId='none'|'blitz'|'rapid'|'classic';
 
 export interface DifficultyProfile {
@@ -50,7 +50,7 @@ export function timeControl(value:unknown):TimeControl {
 
 export function normalizedSide(value:unknown):Color { return value==='b'?'b':'w'; }
 export function normalizedStyle(value:unknown):OpponentStyle { return value==='human'?'human':'precise'; }
-export function normalizedMode(value:unknown):GameMode { return value==='practice'?'practice':'play'; }
+export function normalizedMode(value:unknown):GameMode { return value==='practice'||value==='guided'?value:'play'; }
 
 export function engineOptions(profile:DifficultyProfile,style:OpponentStyle):Record<string,string|number|boolean> {
   if (style==='human') {

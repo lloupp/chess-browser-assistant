@@ -717,7 +717,10 @@ if(!restoreSavedGame()){
   timeControlId='none';
   resetClock();
 }
+function resumeInitialGame(){
+  if(chess.turn()!==side&&!gameEnded()) void computerMove();
+  else if(gameMode==='guided') void refreshGuidedSuggestion();
+}
 syncSettings();
 render();
-if(chess.turn()!==side&&!gameEnded()) void computerMove();
-else if(gameMode==='guided') void refreshGuidedSuggestion();
+resumeInitialGame();

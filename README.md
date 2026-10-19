@@ -15,6 +15,7 @@ original continua preservada como implementação secundária e está documentad
   - **Precisão por Elo** usa `UCI_LimitStrength` + `UCI_Elo`;
   - **Mais humano** usa `Skill Level` para permitir mais imperfeições;
 - modo **Prática** com dica e avaliação do lance;
+- modo **Guiado / aprender jogando** com professor local, orientação por fase, dicas e feedback contextual após cada lance;
 - salva automaticamente e retoma a partida ao reabrir;
 - desfazer, revanche e reinício seguro durante cálculo;
 - relógios 5 min, 10 min e 15+10;
@@ -26,6 +27,15 @@ original continua preservada como implementação secundária e está documentad
 - interface Android-first, responsiva, com foco visível e alvos de toque adequados.
 
 Nenhuma partida é enviada para servidor.
+
+## Como usar o modo guiado
+
+1. Toque em **Nova**, selecione **Guiado / aprender jogando** e inicie a partida.
+2. O painel **Professor de xadrez** mostra o objetivo da fase e uma dica baseada na posição.
+3. Faça um lance. O Stockfish local compara a jogada e mostra uma avaliação com explicação e, quando aplicável, uma alternativa.
+4. O botão **Dica** também funciona no modo guiado e propõe um lance calculado pelo motor.
+
+As avaliações são aproximações de busca curta: dicas estratégicas são educativas e não garantem a melhor jogada. Tudo funciona offline, sem conta ou backend. Em celulares com notch, o WebView respeita as barras do Android e o HTML aplica apenas seu espaçamento interno.
 
 ## Arquitetura
 

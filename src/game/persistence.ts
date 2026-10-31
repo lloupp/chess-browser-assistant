@@ -26,6 +26,7 @@ export interface GameSnapshot {
   whiteMs:number;
   blackMs:number;
   timeoutWinner?:Color;
+  id?:string;
   savedAt:number;
 }
 
@@ -58,6 +59,7 @@ export function normalizeSnapshot(value:unknown):GameSnapshot|undefined {
     whiteMs:finiteMs(raw.whiteMs,clock.initialMs),
     blackMs:finiteMs(raw.blackMs,clock.initialMs),
     ...(raw.timeoutWinner==='w'||raw.timeoutWinner==='b'?{timeoutWinner:raw.timeoutWinner}:{}),
+    ...(typeof raw.id==='string'&&raw.id.length<=64?{id:raw.id}:{}),
     savedAt:typeof raw.savedAt==='number'&&Number.isFinite(raw.savedAt)?raw.savedAt:Date.now()
   };
   try { replay(snapshot); } catch { return undefined; }

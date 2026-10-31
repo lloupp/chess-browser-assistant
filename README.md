@@ -22,7 +22,15 @@ original continua preservada como implementação secundária e está documentad
 - importação e exportação PGN/FEN;
 - jogar a partir de qualquer FEN válido;
 - compartilhamento da partida;
-- análise pós-jogo totalmente local, destacando os piores lances;
+- análise pós-jogo totalmente local, com precisão (%), contagem por categoria e toque no lance para ver a melhor jogada no tabuleiro;
+- setas no tabuleiro para a dica (verde) e para a ameaça do adversário (vermelha, botão **Ameaça**);
+- barra de avaliação nos modos Prática e Guiado;
+- peças capturadas e saldo de material ao lado dos relógios;
+- nome da abertura reconhecido por um pequeno livro offline;
+- toque num lance do histórico para rever a posição, com ◀ ▶;
+- retrospecto local de vitórias, empates e derrotas por nível;
+- sons sintetizados para lance, captura, xeque e fim (com botão para silenciar);
+- tela não apaga durante a partida (desliga sozinha após 5 min sem toque);
 - promoção, roque, en passant, xeque-mate e empates via chess.js;
 - interface Android-first, responsiva, com foco visível e alvos de toque adequados.
 

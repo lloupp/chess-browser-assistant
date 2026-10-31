@@ -1,7 +1,7 @@
-import { Chess, DEFAULT_POSITION, type Square } from 'chess.js';
+import { Chess, DEFAULT_POSITION, type Move, type Square } from 'chess.js';
 import { UciEngine } from './engine/uci';
-import { parseMove } from './chess/position';
-import type { Color } from './types';
+import { parseMove, threatFen } from './chess/position';
+import type { Color, Result } from './types';
 import {
   DIFFICULTIES,
   TIME_CONTROLS,
@@ -22,10 +22,14 @@ import {
   replay,
   type GameSnapshot
 } from './game/persistence';
-import { centipawnLoss, formatEvaluation, grade } from './game/review';
+import { centipawnLoss, formatEvaluation, grade, moveAccuracy, scoreToCp, whiteScore, winPercent, type MoveGrade } from './game/review';
 import { explainPlayedMove, guidanceFor } from './game/coach';
+import { openingName } from './game/openings';
+import { materialSummary } from './game/material';
+import { formatRecord, loadStats, outcomeFor, saveStats, withOutcome } from './game/stats';
+import { isMuted, playSound, setMuted } from './ui/sound';
 
-declare global { interface Window { AndroidShare?:{share(text:string):void} } }
+declare global { interface Window { AndroidShare?:{share(text:string):void}; AndroidScreen?:{keepOn(on:boolean):void} } }
 
 const $=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 const glyphs:Record<string,string>={wk:'♔',wq:'♕',wr:'♖',wb:'♗',wn:'♘',wp:'♙',bk:'♚',bq:'♛',br:'♜',bb:'♝',bn:'♞',bp:'♟'};
@@ -44,7 +48,7 @@ let mainEngine:UciEngine|undefined;
 let mainEngineSignature='';
 let auxEngine:UciEngine|undefined;
 let generation=0;
-let busyKind:'engine'|'hint'|'practice'|'review'|undefined;
+let busyKind:'engine'|'hint'|'threat'|'practice'|'review'|undefined;
 let failed=false;
 let hintMessage='';
 let practiceMessage='';
@@ -54,12 +58,22 @@ let whiteMs=0;
 let blackMs=0;
 let clockStartedAt:number|undefined;
 let resumed=false;
+interface Arrow{from:Square;to:Square;kind:'hint'|'threat'|'best'}
+let arrow:Arrow|undefined;
+let evaluation:{score:Result['score'];label:string}|undefined;
+let viewPly:number|undefined;
+let viewArrow:Arrow|undefined;
+let gameId=newGameId();
+let stats=loadStats();
+let screenAwake=false;
+let lastInteraction=Date.now();
 
 const promotionDialog=$<HTMLDialogElement>('promotion');
 const settingsDialog=$<HTMLDialogElement>('settings-dialog');
 const toolsDialog=$<HTMLDialogElement>('tools-dialog');
 const reviewDialog=$<HTMLDialogElement>('review-dialog');
 
+function newGameId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 function currentProfile(){return difficulty(difficultyId);}
 function currentTimeControl(){return timeControl(timeControlId);}
 function gameEnded(){return Boolean(timeoutWinner)||chess.isGameOver();}
@@ -171,6 +185,8 @@ function handleTimeout(loser:Color){
   timeoutWinner=loser==='w'?'b':'w';
   clockStartedAt=undefined;
   cancelWork('Tempo encerrado');
+  playSound('end');
+  recordResult();
   saveGame();
   render();
 }
@@ -189,6 +205,7 @@ function snapshot():GameSnapshot{
     whiteMs:clocks.w,
     blackMs:clocks.b,
     ...(timeoutWinner?{timeoutWinner}:{}),
+    id:gameId,
     savedAt:Date.now()
   };
 }
@@ -209,6 +226,7 @@ function restoreSavedGame(){
     whiteMs=saved.whiteMs;
     blackMs=saved.blackMs;
     timeoutWinner=saved.timeoutWinner;
+    gameId=saved.id??newGameId();
     resumed=true;
     resumeClock();
     return true;
@@ -222,27 +240,71 @@ function statusText(){
   if(failed) return 'Não foi possível calcular. Tente novamente.';
   if(busyKind==='engine') return 'Stockfish está pensando…';
   if(busyKind==='hint') return 'Calculando uma dica…';
+  if(busyKind==='threat') return 'Procurando a ameaça do adversário…';
   if(busyKind==='practice') return gameMode==='guided'?'Professor está analisando teu lance…':'Avaliando teu lance…';
   if(busyKind==='review') return 'Analisando a partida…';
   if(resumed){resumed=false;return 'Partida retomada. '+(chess.turn()===side?'Tua vez.':'Vez do Stockfish.');}
   return (chess.turn()===side?'Tua vez.':'Vez do Stockfish.')+(chess.isCheck()?' Xeque!':'');
 }
 
+function positionAt(ply:number){
+  const game=new Chess(startFen);
+  for(const san of chess.history().slice(0,ply)) game.move(san);
+  return game;
+}
+
+function squareCenter(square:Square){
+  const file=square.charCodeAt(0)-97,rank=Number(square[1]);
+  return {x:(side==='w'?file:7-file)+0.5,y:(side==='w'?8-rank:rank-1)+0.5};
+}
+
+function arrowElement(value:Arrow){
+  const ns='http://www.w3.org/2000/svg';
+  const svg=document.createElementNS(ns,'svg');
+  svg.setAttribute('viewBox','0 0 8 8');
+  svg.setAttribute('class','board-arrow '+value.kind);
+  svg.setAttribute('aria-hidden','true');
+  const start=squareCenter(value.from),end=squareCenter(value.to);
+  const length=Math.hypot(end.x-start.x,end.y-start.y),ux=(end.x-start.x)/length,uy=(end.y-start.y)/length;
+  const baseX=end.x-ux*0.45,baseY=end.y-uy*0.45;
+  const line=document.createElementNS(ns,'line');
+  line.setAttribute('x1',String(start.x));line.setAttribute('y1',String(start.y));
+  line.setAttribute('x2',String(baseX));line.setAttribute('y2',String(baseY));
+  const head=document.createElementNS(ns,'polygon');
+  head.setAttribute('points',[end.x,end.y,baseX-uy*0.3,baseY+ux*0.3,baseX+uy*0.3,baseY-ux*0.3].join(' '));
+  svg.append(line,head);
+  return svg;
+}
+
+function capturesText(types:string[],color:Color,advantage:number){
+  const groups=new Map<string,number>();
+  for(const type of types) groups.set(type,(groups.get(type)??0)+1);
+  const glyphColor=color==='w'?'b':'w';
+  const pieces=[...groups].map(([type,count])=>glyphs[glyphColor+type]+(count>1?count:'')).join('');
+  return pieces+(advantage>0?' +'+advantage:'');
+}
+
+function plyLabel(ply:number,moves:string[]){
+  return Math.floor((ply-1)/2)+1+(ply%2?'. ':'… ')+moves[ply-1];
+}
+
 function render(){
   const board=$('board');
   board.replaceChildren();
-  board.dataset.fen=chess.fen();
+  const viewing=viewPly!==undefined;
+  const shown=viewing?positionAt(viewPly??0):chess;
+  board.dataset.fen=shown.fen();
   board.setAttribute('aria-busy',String(Boolean(busyKind)));
-  const legal=selected?chess.moves({square:selected,verbose:true}):[];
-  const history=chess.history({verbose:true}),last=history.at(-1);
+  const legal=selected&&!viewing?chess.moves({square:selected,verbose:true}):[];
+  const history=shown.history({verbose:true}),last=history.at(-1);
   for(let row=0;row<8;row++) for(let col=0;col<8;col++){
     const file=side==='w'?col:7-col,rank=side==='w'?8-row:row+1;
     const square=(String.fromCharCode(97+file)+rank) as Square;
-    const piece=chess.get(square);
+    const piece=shown.get(square);
     const button=document.createElement('button');
     button.type='button';
     button.dataset.square=square;
-    button.disabled=Boolean(busyKind)||gameEnded()||chess.turn()!==side;
+    button.disabled=viewing||Boolean(busyKind)||gameEnded()||chess.turn()!==side;
     button.className='square'+((file+rank)%2===0?' dark':'')+(piece?.color==='w'?' white-piece':'')+
       (square===selected?' selected':'')+(legal.some(move=>move.to===square)?' legal':'')+
       ((last?.from===square||last?.to===square)?' previous':'');
@@ -256,15 +318,46 @@ function render(){
     button.addEventListener('click',()=>clickSquare(square));
     board.append(button);
   }
+  const drawn=viewing?viewArrow:arrow;
+  if(drawn) board.append(arrowElement(drawn));
 
   $('history').replaceChildren();
   const moves=chess.history();
   for(let i=0;i<moves.length;i+=2){
     const li=document.createElement('li');
-    const moveNumber=Math.floor(i/2)+1;
-    li.textContent=moveNumber+'. '+moves[i]+(moves[i+1]?' '+moves[i+1]:'');
+    for(const ply of [i+1,i+2]){
+      if(!moves[ply-1]) continue;
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='ply';
+      button.textContent=moves[ply-1];
+      button.setAttribute('aria-current',String(viewPly===ply));
+      button.addEventListener('click',()=>showPly(ply));
+      li.append(button);
+    }
     $('history').append(li);
   }
+  $('view-bar').hidden=!viewing;
+  if(viewing){
+    const ply=viewPly??0;
+    $('view-label').textContent=viewArrow?'Antes de '+plyLabel(ply+1,moves):ply===0?'Posição inicial':'Após '+plyLabel(ply,moves);
+    $('view-prev').toggleAttribute('disabled',viewPly===0);
+  }
+
+  const material=materialSummary(shown,startFen);
+  $('captures-white').textContent=capturesText(material.capturedBy.w,'w',material.advantage);
+  $('captures-black').textContent=capturesText(material.capturedBy.b,'b',-material.advantage);
+  const opening=startFen===DEFAULT_POSITION?openingName(moves):undefined;
+  $('opening').textContent=opening?'Abertura: '+opening:'';
+  const cp=evaluation?scoreToCp(evaluation.score):undefined;
+  $('eval-bar').hidden=gameMode==='play'||cp===undefined;
+  if(evaluation&&cp!==undefined){
+    $('eval-fill').style.width=winPercent(cp).toFixed(1)+'%';
+    $('eval-label').textContent='Avaliação '+formatEvaluation(evaluation.score)+' · '+evaluation.label;
+  }
+  $('sound').textContent=isMuted()?'🔇':'🔊';
+  $('sound').setAttribute('aria-pressed',String(isMuted()));
+  $('sound').setAttribute('aria-label',isMuted()?'Ativar sons':'Silenciar sons');
 
   $('status').textContent=statusText();
   $('last').textContent=last?'Último lance: '+last.san:'';
@@ -281,14 +374,46 @@ function render(){
   }
   $('retry').hidden=!failed;
   $('hint').hidden=gameMode==='play'||gameEnded()||chess.turn()!==side;
+  $('threat').hidden=$('hint').hidden;
   $('review').hidden=!gameEnded()||moves.length===0;
   $('undo').toggleAttribute('disabled',moves.length===0||busyKind==='review');
   $('game-badge').textContent=(gameMode==='guided'?'Guiado':gameMode==='practice'?'Prática':'Partida')+' · '+currentProfile().label.replace(/ ·.*/,'');
   updateClocks();
 }
 
+function showPly(ply:number|undefined){
+  viewPly=ply===undefined||ply>=chess.history().length?undefined:Math.max(0,ply);
+  viewArrow=undefined;
+  selected=undefined;
+  render();
+}
+
+function afterMove(move:Move){
+  playSound(chess.isGameOver()?'end':chess.isCheck()?'check':move.captured?'capture':'move');
+  recordResult();
+}
+
+function recordResult(){
+  const outcome=outcomeFor(chess,side,timeoutWinner);
+  if(!outcome) return;
+  stats=withOutcome(stats,difficultyId,outcome,gameId);
+  saveStats(stats);
+}
+
+function syncKeepAwake(){
+  const wanted=!gameEnded()&&!document.hidden&&Date.now()-lastInteraction<5*60_000;
+  if(wanted===screenAwake) return;
+  screenAwake=wanted;
+  try{window.AndroidScreen?.keepOn(wanted);}catch{/* bridge unavailable */}
+}
+
+function updateRecord(){
+  const id=difficulty($<HTMLSelectElement>('difficulty').value).id;
+  $('record').textContent='Teu retrospecto neste nível: '+formatRecord(stats.records[id])+'.';
+}
+
 function clickSquare(square:Square){
-  if(busyKind||failed||gameEnded()||chess.turn()!==side) return;
+  if(viewPly!==undefined||busyKind||failed||gameEnded()||chess.turn()!==side) return;
   if(selected){
     const moves=chess.moves({square:selected,verbose:true}).filter(move=>move.to===square);
     if(moves.length){
@@ -310,7 +435,9 @@ function humanMove(from:Square,to:Square,promotion?:string){
   const beforeFen=chess.fen();
   if(!finishTurnClock(side)) return;
   const move=chess.move({from,to,...(promotion?{promotion}:{})});
+  afterMove(move);
   selected=undefined;
+  arrow=undefined;
   hintMessage='';
   coachMessage=gameMode==='guided'?'Analisando teu lance…':'';
   failed=false;
@@ -340,6 +467,7 @@ async function assessThenReply(beforeFen:string,afterFen:string,playedSan:string
     const loss=centipawnLoss(best.score,after.score);
     const bestGame=new Chess(beforeFen);
     const bestMove=best.bestmove&&best.bestmove!=='(none)'?bestGame.move(parseMove(best.bestmove)):undefined;
+    evaluation={score:whiteScore(after.score,new Chess(afterFen).turn()),label:'após '+playedSan};
     if(gameMode==='guided'){
       const played=new Chess(beforeFen).move(playedSan);
       coachMessage=explainPlayedMove(played,beforeFen,loss,bestMove?.san);
@@ -370,7 +498,8 @@ async function computerMove(){
     if(token!==generation||chess.fen()!==fen||gameEnded()) return;
     const mover=chess.turn();
     if(!finishTurnClock(mover)) return;
-    chess.move(parseMove(result.bestmove));
+    afterMove(chess.move(parseMove(result.bestmove)));
+    arrow=undefined;
     if(gameEnded()) pauseClock();
     saveGame();
   }catch{
@@ -394,6 +523,13 @@ function resetClock(){
   timeoutWinner=undefined;
 }
 
+function clearAnnotations(){
+  arrow=undefined;
+  evaluation=undefined;
+  viewPly=undefined;
+  viewArrow=undefined;
+}
+
 function startNewGame(fen=DEFAULT_POSITION){
   cancelWork();
   side=normalizedSide($<HTMLSelectElement>('color').value);
@@ -403,6 +539,8 @@ function startNewGame(fen=DEFAULT_POSITION){
   timeControlId=timeControl($<HTMLSelectElement>('time-control').value).id;
   startFen=fen;
   chess=new Chess(fen);
+  gameId=newGameId();
+  clearAnnotations();
   selected=undefined;
   pendingPromotion=undefined;
   failed=false;
@@ -433,6 +571,7 @@ function undoMove(){
     chess.undo();
   }
   timeoutWinner=undefined;
+  clearAnnotations();
   selected=undefined;
   failed=false;
   hintMessage='';
@@ -456,8 +595,38 @@ async function requestHint(){
     const copy=new Chess(fen);
     const move=copy.move(parseMove(result.bestmove));
     hintMessage='Sugestão: '+move.san+' · avaliação '+formatEvaluation(result.score);
+    arrow={from:move.from,to:move.to,kind:'hint'};
+    evaluation={score:whiteScore(result.score,chess.turn()),label:'posição atual'};
   }catch{
     if(token===generation) hintMessage='Dica indisponível agora.';
+  }finally{
+    if(auxEngine===job){job?.dispose();auxEngine=undefined;}
+    if(token===generation){busyKind=undefined;render();}
+  }
+}
+
+async function requestThreat(){
+  if(gameMode==='play'||busyKind||gameEnded()||chess.turn()!==side) return;
+  const fen=chess.fen(),swapped=threatFen(fen);
+  if(!swapped){
+    arrow=undefined;
+    hintMessage='Estás em xeque: a ameaça imediata é o próprio xeque.';
+    render();
+    return;
+  }
+  const token=++generation;
+  busyKind='threat';hintMessage='';render();
+  let job:UciEngine|undefined;
+  try{
+    job=await strongAuxEngine();
+    const result=await job.analyze(swapped,10,500);
+    if(token!==generation||chess.fen()!==fen) return;
+    const move=new Chess(swapped).move(parseMove(result.bestmove));
+    arrow={from:move.from,to:move.to,kind:'threat'};
+    hintMessage='Ameaça: se fosse a vez do adversário, ele jogaria '+move.san+
+      (move.captured?', capturando '+pieceNames[move.captured]:'')+'.';
+  }catch{
+    if(token===generation) hintMessage='Não foi possível identificar a ameaça agora.';
   }finally{
     if(auxEngine===job){job?.dispose();auxEngine=undefined;}
     if(token===generation){busyKind=undefined;render();}
@@ -519,6 +688,8 @@ function importPgn(){
     cancelWork();
     startFen=fenHeader;
     chess=imported;
+    gameId=newGameId();
+    clearAnnotations();
     selected=undefined;failed=false;timeoutWinner=undefined;hintMessage='';practiceMessage='';coachMessage='';
     resetClock();
     saveGame();
@@ -541,7 +712,7 @@ async function shareGame(){
   }
 }
 
-interface ReviewLine{moveNumber:number;san:string;best:string;loss?:number;label:string}
+interface ReviewLine{ply:number;moveNumber:number;san:string;best:string;bestArrow?:Arrow;loss?:number;accuracy?:number;label:MoveGrade}
 
 async function reviewGame(){
   if(chess.history().length===0||busyKind) return;
@@ -550,12 +721,13 @@ async function reviewGame(){
   reviewDialog.showModal();
   $('review-list').replaceChildren();
   $('review-summary').textContent='Preparando análise local…';
+  $('review-counts').textContent='';
   const allMoves=chess.history();
-  const positions:{moveNumber:number;san:string;before:string;after:string}[]=[];
+  const positions:{ply:number;moveNumber:number;san:string;before:string;after:string}[]=[];
   const cursor=new Chess(startFen);
   for(let i=0;i<allMoves.length;i++){
     const before=cursor.fen(),move=cursor.move(allMoves[i]);
-    if(move.color===side) positions.push({moveNumber:Math.floor(i/2)+1,san:move.san,before,after:cursor.fen()});
+    if(move.color===side) positions.push({ply:i,moveNumber:Math.floor(i/2)+1,san:move.san,before,after:cursor.fen()});
   }
   const lines:ReviewLine[]=[];
   let job:UciEngine|undefined;
@@ -571,19 +743,37 @@ async function reviewGame(){
       const loss=centipawnLoss(best.score,after.score);
       const bestGame=new Chess(position.before);
       const bestMove=best.bestmove&&best.bestmove!=='(none)'?bestGame.move(parseMove(best.bestmove)):undefined;
-      lines.push({moveNumber:position.moveNumber,san:position.san,best:bestMove?.san??'—',loss,label:grade(loss)});
+      lines.push({
+        ply:position.ply,moveNumber:position.moveNumber,san:position.san,best:bestMove?.san??'—',
+        ...(bestMove?{bestArrow:{from:bestMove.from,to:bestMove.to,kind:'best' as const}}:{}),
+        loss,accuracy:moveAccuracy(best.score,after.score),label:grade(loss)
+      });
     }
     if(token!==generation) return;
     const valid=lines.filter(line=>line.loss!==undefined);
     const average=valid.length?Math.round(valid.reduce((sum,line)=>sum+(line.loss??0),0)/valid.length):undefined;
-    $('review-summary').textContent='Análise concluída'+(average!==undefined?' · perda média '+(average/100).toFixed(1):'')+'.';
+    const accuracies=lines.flatMap(line=>line.accuracy===undefined?[]:[line.accuracy]);
+    const accuracy=accuracies.length?Math.round(accuracies.reduce((sum,value)=>sum+value,0)/accuracies.length):undefined;
+    $('review-summary').textContent='Análise concluída'+(accuracy!==undefined?' · precisão '+accuracy+'%':'')+
+      (average!==undefined?' · perda média '+(average/100).toFixed(1):'')+'.';
+    const grades:MoveGrade[]=['Excelente','Boa','Imprecisão','Erro','Erro grave'];
+    $('review-counts').textContent=grades.map(label=>label+' '+lines.filter(line=>line.label===label).length).join(' · ');
     for(const line of [...lines].sort((a,b)=>(b.loss??-1)-(a.loss??-1)).slice(0,8)){
       const li=document.createElement('li');
+      const button=document.createElement('button');
+      button.type='button';
       const strong=document.createElement('strong');
       strong.textContent=line.label;
-      li.append(strong,document.createTextNode(' · '+line.moveNumber+'. '+line.san+
+      button.append(strong,document.createTextNode(' · '+line.moveNumber+'. '+line.san+
         (line.best!=='—'&&line.best!==line.san?' → melhor '+line.best:'')+
         (line.loss!==undefined?' · '+(line.loss/100).toFixed(1):'')));
+      button.addEventListener('click',()=>{
+        reviewDialog.close();
+        showPly(line.ply);
+        viewArrow=line.bestArrow;
+        render();
+      });
+      li.append(button);
       $('review-list').append(li);
     }
   }catch{
@@ -607,13 +797,19 @@ for(const [id,control] of Object.entries(TIME_CONTROLS)){
   const option=document.createElement('option');option.value=id;option.textContent=control.label;$('time-control').append(option);
 }
 
-$('new').addEventListener('click',()=>{syncSettings();settingsDialog.showModal();});
+$('new').addEventListener('click',()=>{syncSettings();updateRecord();settingsDialog.showModal();});
+$('difficulty').addEventListener('change',updateRecord);
 $('settings-form').addEventListener('submit',event=>{event.preventDefault();startNewGame();});
 $('settings-cancel').addEventListener('click',()=>settingsDialog.close());
 $('retry').addEventListener('click',()=>{failed=false;void computerMove();});
 $('undo').addEventListener('click',undoMove);
 $('rematch').addEventListener('click',rematch);
 $('hint').addEventListener('click',()=>void requestHint());
+$('threat').addEventListener('click',()=>void requestThreat());
+$('sound').addEventListener('click',()=>{setMuted(!isMuted());render();});
+$('view-prev').addEventListener('click',()=>showPly((viewPly??chess.history().length)-1));
+$('view-next').addEventListener('click',()=>showPly((viewPly??chess.history().length)+1));
+$('view-live').addEventListener('click',()=>showPly(undefined));
 $('tools').addEventListener('click',openTools);
 $('tools-close').addEventListener('click',()=>toolsDialog.close());
 $('copy-fen').addEventListener('click',()=>void copyText(chess.fen(),'FEN'));
@@ -642,7 +838,9 @@ window.addEventListener('pagehide',()=>{
   pauseClock();saveGame();cancelWork();
 });
 
-setInterval(updateClocks,250);
+for(const type of ['pointerdown','keydown']) document.addEventListener(type,()=>{lastInteraction=Date.now();});
+
+setInterval(()=>{updateClocks();syncKeepAwake();},250);
 
 if(!restoreSavedGame()){
   timeControlId='none';

@@ -15,19 +15,33 @@
       <h1>Tu contra Stockfish</h1>
     </div>
     <span id="game-badge" class="badge">Partida</span>
+    <button id="sound" class="icon-button" type="button" aria-pressed="false">🔊</button>
   </header>
 
   <section class="game-shell" aria-label="Partida">
     <div class="clock-row" aria-label="Relógios">
-      <div id="clock-black-wrap" class="clock"><span>Pretas</span><strong id="clock-black">—</strong></div>
-      <div id="clock-white-wrap" class="clock"><span>Brancas</span><strong id="clock-white">—</strong></div>
+      <div id="clock-black-wrap" class="clock"><span>Pretas</span><span id="captures-black" class="captures"></span><strong id="clock-black">—</strong></div>
+      <div id="clock-white-wrap" class="clock"><span>Brancas</span><span id="captures-white" class="captures"></span><strong id="clock-white">—</strong></div>
     </div>
 
     <div id="board" aria-label="Tabuleiro de xadrez"></div>
 
+    <div id="view-bar" class="view-bar" hidden>
+      <span id="view-label"></span>
+      <button id="view-prev" type="button" aria-label="Lance anterior">◀</button>
+      <button id="view-next" type="button" aria-label="Próximo lance">▶</button>
+      <button id="view-live" type="button">Voltar ao jogo</button>
+    </div>
+
+    <div id="eval-bar" class="eval-bar" aria-live="polite" hidden>
+      <div id="eval-fill" class="eval-fill"></div>
+      <span id="eval-label" class="eval-label"></span>
+    </div>
+
     <div class="status-card">
       <p id="status" role="status" aria-live="polite"></p>
       <p id="last" class="muted"></p>
+      <p id="opening" class="muted"></p>
       <p id="practice-feedback" class="feedback" aria-live="polite"></p>
       <p id="hint-result" class="feedback" aria-live="polite"></p>
     </div>
@@ -45,6 +59,7 @@
     <nav class="actions" aria-label="Ações da partida">
       <button id="undo" type="button">↶ <span>Desfazer</span></button>
       <button id="hint" type="button" hidden>◎ <span>Dica</span></button>
+      <button id="threat" type="button" hidden>⚠ <span>Ameaça</span></button>
       <button id="rematch" type="button">↻ <span>Revanche</span></button>
       <button id="tools" type="button">⇄ <span>PGN/FEN</span></button>
       <button id="new" class="primary" type="button">＋ <span>Nova</span></button>
@@ -79,6 +94,7 @@
           <select id="time-control"></select>
         </label>
       </div>
+      <p id="record" class="help"></p>
       <p class="help">Tudo roda localmente. O modo “Mais humano” usa a habilidade reduzida do Stockfish para variar mais os erros.</p>
       <div class="dialog-actions"><button id="settings-cancel" type="button">Cancelar</button><button class="primary" type="submit">Iniciar</button></div>
     </form>
@@ -97,8 +113,9 @@
   <dialog id="review-dialog" class="sheet">
     <div class="dialog-head"><div><p class="eyebrow">ANÁLISE LOCAL</p><h2>Revisão da partida</h2></div></div>
     <p id="review-summary" aria-live="polite"></p>
+    <p id="review-counts" class="help"></p>
     <ol id="review-list" class="review-list"></ol>
-    <p class="help">A revisão usa Stockfish local e destaca os lances com maior perda de avaliação. Nenhum dado sai do aparelho.</p>
+    <p class="help">A revisão usa Stockfish local e destaca os lances com maior perda de avaliação. Toca num lance para ver a posição e a melhor jogada no tabuleiro. Nenhum dado sai do aparelho.</p>
     <div class="dialog-actions"><button id="review-close" type="button">Fechar</button></div>
   </dialog>
 

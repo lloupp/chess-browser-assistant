@@ -58,3 +58,14 @@ export class PositionTracker {
     return this.chess.fen();
   }
 }
+// Same position with the other side to move ("null move"), used to show what the opponent threatens.
+// Returns undefined when the side to move is in check, since passing would then be illegal.
+export function threatFen(fen:string):string|undefined {
+  const chess=new Chess(fen);
+  if (chess.isCheck()) return undefined;
+  const fields=fen.trim().split(/\s+/);
+  fields[1]=fields[1]==='w'?'b':'w';
+  fields[3]='-';
+  const swapped=fields.join(' ');
+  try { validated(swapped); return swapped; } catch { return undefined; }
+}

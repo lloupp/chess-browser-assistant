@@ -33,6 +33,9 @@ describe('post-game review',()=>{
   it('normalizes cp and mate scores and grades loss',()=>{
     expect(scoreToCp({type:'cp',value:42})).toBe(42);
     expect(scoreToCp({type:'mate',value:3})).toBeGreaterThan(90000);
+    expect(scoreToCp({type:'mate',value:0})).toBeLessThan(-90000);
+    // A mating move: the opponent is mated, so nothing was lost.
+    expect(centipawnLoss({type:'mate',value:1},{type:'mate',value:0})).toBe(0);
     expect(centipawnLoss({type:'cp',value:50},{type:'cp',value:-20})).toBe(30);
     expect(grade(20)).toBe('Excelente');
     expect(grade(500)).toBe('Erro grave');

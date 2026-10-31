@@ -46,6 +46,7 @@ public final class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         webView.addJavascriptInterface(new AndroidShareBridge(), "AndroidShare");
+        webView.addJavascriptInterface(new AndroidScreenBridge(), "AndroidScreen");
 
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
@@ -96,6 +97,15 @@ public final class MainActivity extends Activity {
                 intent.setType("text/plain");
                 intent.putExtra(Intent.EXTRA_TEXT, text);
                 startActivity(Intent.createChooser(intent, "Compartilhar partida"));
+            });
+        }
+    }
+
+    // Keeps the screen on only while the page asks for it (a game in progress, recently touched).
+    private final class AndroidScreenBridge {
+        @JavascriptInterface public void keepOn(boolean on) {
+            runOnUiThread(() -> {
+                if (webView != null) webView.setKeepScreenOn(on);
             });
         }
     }
